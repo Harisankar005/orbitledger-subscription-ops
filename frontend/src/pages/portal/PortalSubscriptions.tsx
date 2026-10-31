@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/Dialog";
-import { Repeat, Calendar, Pause, Play, XCircle, AlertCircle, Package } from "lucide-react";
+import { Repeat, Pause, Play, XCircle } from "lucide-react";
 
 interface PortalSubscription {
   id: number;

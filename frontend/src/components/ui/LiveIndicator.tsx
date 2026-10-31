@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Wifi, WifiOff } from "lucide-react";
 
 export function LiveIndicator() {
   const [isConnected, setIsConnected] = useState<boolean>(false);

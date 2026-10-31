@@ -1,7 +1,7 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Brightloop Subscription Management Platform",
+    "title": "OrbitLedger Subscription Operations",
     "version": "1.0.0"
   },
   "paths": {

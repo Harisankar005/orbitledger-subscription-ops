@@ -1,4 +1,4 @@
-# Brightloop system architecture
+# OrbitLedger system architecture
 
 ## 1. High-level topology
 

@@ -1,12 +1,11 @@
-import React, { useState } from "react";
+import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/Dialog";
-import { FileText, Printer, AlertCircle, CheckCircle, Clock } from "lucide-react";
+import { Printer, AlertCircle } from "lucide-react";
 
 interface PortalInvoice {
   id: number;
@@ -27,8 +26,6 @@ interface PortalInvoice {
 }
 
 export function PortalInvoices() {
-  const [printInvoiceId, setPrintInvoiceId] = useState<number | null>(null);
-
   const { data, isLoading } = useQuery({
     queryKey: ["portal-invoices"],
     queryFn: () =>

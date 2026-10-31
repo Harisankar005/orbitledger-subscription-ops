@@ -5,7 +5,7 @@ import { useAuth } from "@/features/auth/AuthContext";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { User, Building, Phone, Mail, MapPin, CheckCircle, Save } from "lucide-react";
+import { CheckCircle, Save } from "lucide-react";
 
 interface CustomerProfile {
   id: number;
@@ -28,7 +28,7 @@ export function PortalProfile() {
   const [isSuccess, setIsSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  const { data, isLoading } = useQuery({
+  const { data } = useQuery({
     queryKey: ["portal-profile"],
     queryFn: () => api.get<CustomerProfile>("/portal/profile"),
   });

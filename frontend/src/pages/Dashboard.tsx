@@ -4,7 +4,6 @@ import { api } from "@/api/client";
 import { formatCurrency } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { Badge } from "@/components/ui/Badge";
 import {
   TrendingUp,
   DollarSign,
@@ -12,8 +11,6 @@ import {
   Repeat,
   Download,
   Printer,
-  Calendar,
-  Layers,
   ArrowUpRight,
   ArrowDownRight,
 } from "lucide-react";
@@ -24,11 +21,7 @@ import {
   XAxis,
   YAxis,
   Tooltip,
-  Legend,
   CartesianGrid,
-  PieChart,
-  Pie,
-  Cell,
 } from "recharts";
 
 interface SummaryData {
@@ -107,6 +100,38 @@ export function Dashboard() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2 no-print">
+          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-600">
+            <span className="text-slate-400">From:</span>
+            <input
+              type="date"
+              aria-label="Start date filter"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="bg-transparent text-xs focus:outline-none"
+            />
+            <span className="text-slate-400">To:</span>
+            <input
+              type="date"
+              aria-label="End date filter"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="bg-transparent text-xs focus:outline-none"
+            />
+            {(dateFrom || dateTo) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setDateFrom("");
+                  setDateTo("");
+                }}
+                className="ml-1 text-slate-400 hover:text-slate-600 font-semibold"
+                aria-label="Clear date filters"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
           <Button
             variant="outline"
             size="sm"

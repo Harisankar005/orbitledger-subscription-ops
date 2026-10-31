@@ -2,21 +2,24 @@ import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
-import { formatCurrency, formatDate } from "@/lib/utils";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { formatDate } from "@/lib/utils";
+import { useToast } from "@/context/ToastContext";
+import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
 import { Dialog } from "@/components/ui/Dialog";
-import { Plus, Search, Filter, ExternalLink, ArrowRight } from "lucide-react";
+import { TableSkeleton } from "@/components/ui/Skeleton";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Plus, ArrowRight, Layers } from "lucide-react";
 
 export function Subscriptions() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState<string>("");
-  const [createModalOpen, setCreateModalOpen] = useState<boolean>(false);
   const [templateModalOpen, setTemplateModalOpen] = useState<boolean>(false);
 
   const queryClient = useQueryClient();
+  const toast = useToast();
 
   const subsQuery = useQuery<{ items: any[]; total: number }>({
     queryKey: ["subscriptions", statusFilter],
@@ -36,13 +39,7 @@ export function Subscriptions() {
   const customersQuery = useQuery<{ items: any[] }>({
     queryKey: ["customers"],
     queryFn: () => api.get("/customers?page_size=100"),
-    enabled: templateModalOpen || createModalOpen,
-  });
-
-  const plansQuery = useQuery<{ items: any[] }>({
-    queryKey: ["plans"],
-    queryFn: () => api.get("/plans"),
-    enabled: createModalOpen,
+    enabled: templateModalOpen,
   });
 
   // Create from template mutation
@@ -58,9 +55,10 @@ export function Subscriptions() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["subscriptions"] });
       setTemplateModalOpen(false);
+      toast.success("Subscription created from template successfully");
     },
     onError: (err: any) => {
-      alert(`Error: ${err.message || "Failed to create subscription"}`);
+      toast.error(err.message || "Failed to create subscription");
     },
   });
 
@@ -149,69 +147,97 @@ export function Subscriptions() {
             </div>
           </div>
 
-          {/* Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-slate-50 text-slate-500 uppercase text-xs border-b border-slate-200">
-                <tr>
-                  <th className="px-4 py-3">Number</th>
-                  <th className="px-4 py-3">Customer</th>
-                  <th className="px-4 py-3">Plan</th>
-                  <th className="px-4 py-3">Billing Cycle</th>
-                  <th className="px-4 py-3">Next Invoice</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3 text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {subsQuery.isLoading ? (
-                  <tr>
-                    <td colSpan={7} className="text-center py-8 text-slate-400">
-                      Loading contracts...
-                    </td>
-                  </tr>
-                ) : subscriptions.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="text-center py-8 text-slate-400">
-                      No subscriptions match criteria
-                    </td>
-                  </tr>
-                ) : (
-                  subscriptions.map((sub) => (
-                    <tr key={sub.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-4 py-3.5 font-semibold text-indigo-600">
-                        <Link to={`/subscriptions/${sub.id}`} className="hover:underline flex items-center">
+          {/* Subscriptions Table / Mobile Cards */}
+          {subsQuery.isLoading ? (
+            <div className="py-4">
+              <TableSkeleton rows={5} cols={7} />
+            </div>
+          ) : subscriptions.length === 0 ? (
+            <div className="py-4">
+              <EmptyState
+                icon={Layers}
+                title="No subscriptions found"
+                description={searchTerm || statusFilter !== "all" ? "No contracts match your active filter or search." : "Get started by generating your first subscription contract."}
+                actionLabel="New from Template"
+                onAction={() => setTemplateModalOpen(true)}
+              />
+            </div>
+          ) : (
+            <>
+              {/* Desktop View */}
+              <div className="hidden sm:block overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-slate-50 text-slate-500 uppercase text-xs border-b border-slate-200">
+                    <tr>
+                      <th className="px-4 py-3">Number</th>
+                      <th className="px-4 py-3">Customer</th>
+                      <th className="px-4 py-3">Plan</th>
+                      <th className="px-4 py-3">Billing Cycle</th>
+                      <th className="px-4 py-3">Next Invoice</th>
+                      <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {subscriptions.map((sub) => (
+                      <tr key={sub.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-4 py-3.5 font-semibold text-indigo-600">
+                          <Link to={`/subscriptions/${sub.id}`} className="hover:underline flex items-center">
+                            {sub.number}
+                          </Link>
+                        </td>
+                        <td className="px-4 py-3.5 font-medium text-slate-800">
+                          {sub.customer?.name || `Customer #${sub.customer_id}`}
+                        </td>
+                        <td className="px-4 py-3.5 text-slate-600">
+                          {sub.plan?.name || `Plan #${sub.plan_id}`}
+                        </td>
+                        <td className="px-4 py-3.5 text-slate-600 capitalize">
+                          {sub.plan?.billing_period || "Monthly"}
+                        </td>
+                        <td className="px-4 py-3.5 text-slate-600">
+                          {formatDate(sub.next_invoice_date)}
+                        </td>
+                        <td className="px-4 py-3.5">
+                          <Badge status={sub.status} />
+                        </td>
+                        <td className="px-4 py-3.5 text-right">
+                          <Link to={`/subscriptions/${sub.id}`}>
+                            <Button variant="ghost" size="sm">
+                              View <ArrowRight className="h-3.5 w-3.5 ml-1" />
+                            </Button>
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Cards View (<640px) */}
+              <div className="sm:hidden divide-y divide-slate-100">
+                {subscriptions.map((sub) => (
+                  <div key={sub.id} className="py-3.5 space-y-2">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <Link to={`/subscriptions/${sub.id}`} className="font-semibold text-indigo-600 hover:underline">
                           {sub.number}
                         </Link>
-                      </td>
-                      <td className="px-4 py-3.5 font-medium text-slate-800">
-                        {sub.customer?.name || `Customer #${sub.customer_id}`}
-                      </td>
-                      <td className="px-4 py-3.5 text-slate-600">
-                        {sub.plan?.name || `Plan #${sub.plan_id}`}
-                      </td>
-                      <td className="px-4 py-3.5 text-slate-600 capitalize">
-                        {sub.plan?.billing_period || "Monthly"}
-                      </td>
-                      <td className="px-4 py-3.5 text-slate-600">
-                        {formatDate(sub.next_invoice_date)}
-                      </td>
-                      <td className="px-4 py-3.5">
-                        <Badge status={sub.status} />
-                      </td>
-                      <td className="px-4 py-3.5 text-right">
-                        <Link to={`/subscriptions/${sub.id}`}>
-                          <Button variant="ghost" size="sm">
-                            View <ArrowRight className="h-3.5 w-3.5 ml-1" />
-                          </Button>
-                        </Link>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                        <div className="text-xs text-slate-700 font-medium">
+                          {sub.customer?.name || `Customer #${sub.customer_id}`}
+                        </div>
+                      </div>
+                      <Badge status={sub.status} />
+                    </div>
+                    <div className="flex justify-between items-center text-xs text-slate-500 pt-1">
+                      <span>{sub.plan?.name || "Standard Plan"} ({sub.plan?.billing_period || "Monthly"})</span>
+                      <span>Next: {formatDate(sub.next_invoice_date)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 

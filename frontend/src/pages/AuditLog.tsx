@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/Dialog";
-import { History, Eye, Filter, RefreshCw, FileCode } from "lucide-react";
+import { Eye, RefreshCw, FileCode } from "lucide-react";
 
 interface AuditLogEntry {
   id: number;

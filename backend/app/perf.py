@@ -42,7 +42,7 @@ def benchmark_endpoint(
 
 def run_benchmarks():
     print("=" * 60)
-    print("BRIGHTLOOP PERFORMANCE BENCHMARK (50 iterations per endpoint)")
+    print("ORBITLEDGER PERFORMANCE BENCHMARK (50 iterations per endpoint)")
     print("=" * 60)
 
     # 1. Login to obtain Admin JWT

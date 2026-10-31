@@ -1,4 +1,4 @@
-name: Brightloop CI
+name: OrbitLedger CI
 
 on:
   push:
@@ -38,10 +38,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r backend/requirements.txt -r backend/requirements-dev.txt
 
-      - name: Lint with ruff
+      - name: Lint and typecheck backend
         run: |
           cd backend
           ruff check .
+          mypy app
 
       - name: Run test suite with pytest
         env:
@@ -50,7 +51,7 @@ jobs:
           ENVIRONMENT: test
         run: |
           cd backend
-          pytest -v --cov=app tests/
+          pytest -v --cov=app --cov=app/services tests/
 
       - name: Verify frontend API routes against OpenAPI schema
         run: |
@@ -72,6 +73,16 @@ jobs:
         run: |
           cd frontend
           npm ci
+
+      - name: Lint frontend
+        run: |
+          cd frontend
+          npm run lint
+
+      - name: Run frontend unit tests
+        run: |
+          cd frontend
+          npm run test
 
       - name: TypeScript typecheck
         run: |

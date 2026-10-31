@@ -1,13 +1,13 @@
-# Brightloop subscription management platform
+# OrbitLedger Subscription Operations
 
-[![CI Pipeline](https://github.com/Harisankar005/brightloop-subscription-management/actions/workflows/ci.yml/badge.svg)](https://github.com/Harisankar005/brightloop-subscription-management)
+[![CI Pipeline](https://github.com/Harisankar005/orbitledger-subscription-ops/actions/workflows/ci.yml/badge.svg)](https://github.com/Harisankar005/orbitledger-subscription-ops)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com/)
 [![React 18](https://img.shields.io/badge/React-18.3-61dafb.svg)](https://react.dev/)
 [![TypeScript Strict](https://img.shields.io/badge/TypeScript-Strict-3178c6.svg)](https://www.typescriptlang.org/)
 [![PostgreSQL 16](https://img.shields.io/badge/PostgreSQL-16-336791.svg)](https://www.postgresql.org/)
 
-Brightloop manages subscription lifecycles, recurring billing, and revenue records. Built with Python 3.12, FastAPI, SQLAlchemy 2.0, PostgreSQL with SQLite fallback, and a React 18 TypeScript single-page client.
+OrbitLedger manages subscription lifecycles, recurring billing, and revenue records. Built with Python 3.12, FastAPI, SQLAlchemy 2.0, PostgreSQL with SQLite fallback, and a React 18 TypeScript single-page client.
 
 > **Project Builders (Odoo Hackathon):**
 > - **B. Harisankar** ([@Harisankar005](https://github.com/Harisankar005)) — System Architecture, Billing Engine, Concurrency & Security, API Services, Database Migrations
@@ -17,11 +17,11 @@ Brightloop manages subscription lifecycles, recurring billing, and revenue recor
 
 ## Quickstart in five commands
 
-Run Brightloop locally without cloud services:
+Run OrbitLedger locally without cloud services:
 
 ```bash
 # 1. Clone and enter repository
-git clone https://github.com/Harisankar005/brightloop-subscription-management.git && cd brightloop
+git clone https://github.com/Harisankar005/orbitledger-subscription-ops.git && cd orbitledger-subscription-ops
 
 # 2. Set up backend environment and install packages
 cd backend
@@ -117,53 +117,84 @@ flowchart TD
 
 ## Test coverage and benchmarks
 
-### Automated pytest suite
+### Automated test suites (76 tests passing)
 
-Run tests for authorization, concurrency, idempotency, and pricing:
+The project includes 60 backend unit, concurrency, and authorization tests in pytest, alongside 16 frontend unit and validation tests in Vitest:
 
 ```bash
+# Backend pytest suite with service coverage
 cd backend
-pytest -v
+pytest -v --cov=app/services tests/
+
+# Frontend Vitest suite & ESLint
+cd ../frontend
+npm run test
+npm run lint
 ```
 
-All 37 tests pass:
+Coverage across `app/services`: **83%**
+- `services/catalog.py`: **98%**
+- `services/tax.py`: **97%**
+- `services/payment.py`: **89%**
+- `services/subscription.py`: **88%**
+- `services/idempotency.py`: **85%**
+- `services/numbering.py`: **83%**
+- `services/auth.py`: **81%**
+
+All 60 backend tests pass against an isolated temporary database (`conftest.py` ensures `brightloop.db` is never touched):
 
 ```text
-tests/authz/test_authz_matrix.py::test_authz_matrix_staff_forbidden_from_admin_actions PASSED
-tests/authz/test_authz_matrix.py::test_authz_matrix_staff_allowed_business_operations PASSED
-tests/authz/test_authz_matrix.py::test_authz_matrix_customer_portal_and_ownership_scoping PASSED
-tests/authz/test_authz_matrix.py::test_unauthenticated_requests_rejected PASSED
-tests/concurrency/test_billing_idempotency.py::test_billing_run_requires_idempotency_key_header PASSED
-tests/concurrency/test_billing_idempotency.py::test_billing_run_twice_creates_zero PASSED
-tests/concurrency/test_billing_idempotency.py::test_billing_idempotency_key_header PASSED
-tests/concurrency/test_billing_idempotency.py::test_billing_idempotency_key_reuse_different_payload_rejected PASSED
-tests/concurrency/test_billing_idempotency.py::test_billing_idempotency_concurrent_identical_requests PASSED
-tests/concurrency/test_billing_idempotency.py::test_failed_request_can_be_retried_safely PASSED
-tests/concurrency/test_billing_idempotency.py::test_independent_runs_cannot_bill_same_period_twice PASSED
-tests/concurrency/test_billing_idempotency.py::test_month_end_anchor_relativedelta_drift_free PASSED
-tests/unit/test_auth_and_security.py::test_production_configuration_validation PASSED
-tests/unit/test_auth_and_security.py::test_refresh_cookie_attributes PASSED
-tests/unit/test_password_policy_enforcement PASSED
-tests/unit/test_login_lockout_after_five_failed_attempts PASSED
-tests/unit/test_forgot_password_enumeration_resistance PASSED
-tests/unit/test_token_rotation_and_reuse_family_revocation PASSED
-tests/unit/test_password_reset_revokes_all_refresh_tokens PASSED
-tests/unit/test_discount_rules.py::test_discount_eligibility_and_stacking PASSED
-tests/unit/test_discount_rules.py::test_atomic_usage_limit_exhaustion PASSED
-tests/unit/test_discount_rules.py::test_discount_never_exceeds_base PASSED
-tests/unit/test_invoices_and_payments.py::test_invoice_confirm_lifecycle_and_optimistic_locking PASSED
-tests/unit/test_invoices_and_payments.py::test_invoice_cancellation_rules PASSED
-tests/unit/test_invoices_and_payments.py::test_send_invoice_outbox_queue PASSED
-tests/unit/test_invoices_and_payments.py::test_payment_validation_rules PASSED
-tests/unit/test_partial_and_full_payment_lifecycle PASSED
-tests/unit/test_invoices_and_payments.py::test_payment_idempotency_prevents_duplicate_charge PASSED
-tests/unit/test_pricing_and_tax.py::test_tax_resolution_order PASSED
-tests/unit/test_pricing_and_tax.py::test_calculate_tax_percent_and_fixed PASSED
-tests/unit/test_pricing_and_tax.py::test_hypothesis_tax_rounding_invariants PASSED
-tests/unit/test_state_machine.py::test_transition_validation_gates PASSED
-tests/unit/test_state_machine.py::test_illegal_transition_and_flags PASSED
-tests/unit/test_state_machine.py::test_optimistic_locking PASSED
+tests/authz/test_authz_matrix.py (4 tests) - Staff forbidden from admin actions, staff business ops, customer scoping, unauthenticated rejection
+tests/concurrency/test_billing_idempotency.py (13 tests) - Atomic lease claims, duplicate runs create zero, header verification, cross-endpoint scope isolation, stale worker recovery
+tests/unit/test_auth_and_security.py (7 tests) - Production settings validation, cookie attributes, password strength, account lockout, enumeration resistance, token rotation
+tests/unit/test_catalog_service.py (5 tests) - Product & variant CRUD, tax & rules CRUD, payment terms, plan CRUD with date constraints, quotation template CRUD
+tests/unit/test_discount_rules.py (3 tests) - Eligibility & stacking, atomic coupon limit exhaustion, discount bounds
+tests/unit/test_draft_edit_and_routes.py (5 tests) - Discount toggle, outbox retry, draft subscription patch, date validation, quotation templates
+tests/unit/test_invoices_and_payments.py (6 tests) - Invoice lifecycle & optimistic locking, cancellation, outbox queue, payment validation, partial payments, payment idempotency
+tests/unit/test_migration_data_safety.py (1 test) - Non-destructive Alembic migration data preservation across upgrade/downgrade
+tests/unit/test_overdue_and_reports.py (2 tests) - Overdue consistency across dashboard/list/CSV, draft invoices excluded from receivables
+tests/unit/test_pricing_and_tax.py (3 tests) - Tax resolution order, percent & fixed calculations, Hypothesis rounding invariants
+tests/unit/test_state_machine.py (3 tests) - Transition validation gates, illegal transition rejection, optimistic locking
+tests/unit/test_subscription_service.py (8 tests) - Plan flags: allow_pause, allow_early_close, allow_renew, min_quantity, availability dates, auto_close_on_end, renew, templates
 ```
+
+### Docker Compose & Time-Travel Demo
+
+To deploy from a completely clean volume:
+
+```bash
+# 1. Start all containers with fresh volumes
+docker compose down -v && docker compose up --build
+
+# 2. In a separate terminal, seed initial records
+docker compose exec api python -m app.seed --small
+
+# 3. Access web client
+# Open http://localhost in browser
+```
+
+The `api` container automatically executes `alembic upgrade head` before launching Uvicorn, and both `api` (`/api/health`) and `web` containers run integrated Docker healthchecks.
+
+#### Time-travel demo mode
+To enable time-travel clock advancement for demonstration:
+
+```bash
+DEMO_MODE=true docker compose up
+```
+
+When running in demo mode, platform administrators (`admin@brightloop.test`) see a **Time Travel +1 Mo** button in the top navigation bar. Clicking it calls `/api/demo/advance-clock`, advancing the simulated UTC clock by one calendar month and triggering the idempotent billing engine to generate new invoice cycles without waiting 30 days.
+
+### Dataset sizes
+
+- **Small seed (`--small`)**: 10 customers, 6 plans, 20 subscriptions, invoices, and payments. Ideal for live evaluation and rapid walkthroughs.
+- **Full seed (`--full`)**: 100+ customers, 6 plans, 200+ subscriptions, and extensive invoice histories spanning all aging brackets (1-30, 31-60, 61+ days overdue).
+
+### Known limitations
+
+1. **Local database dialect**: Local single-process runs use SQLite (`sqlite:///./brightloop.db`), relying on serialized transactions. Multi-worker row-level locking (`SKIP LOCKED`) is active on PostgreSQL 16 in Docker Compose and production environments.
+2. **Payment processor simulation**: Payment recording models offline and direct bank transactions (UPI, card, bank transfer, cheque, cash) rather than calling third-party payment gateways (Stripe/Razorpay) via external webhooks.
+3. **Outbox email delivery**: Transactional outbox messages are delivered to local Mailpit SMTP (`http://localhost:8025`) for self-contained validation rather than external authenticated SMTP relays.
+4. **Client-side routing**: The frontend is a React 18 single-page application using code splitting (`React.lazy`, main bundle: ~248 kB) rather than server-side rendering (SSR).
 
 ### Benchmark latency results
 

@@ -2,7 +2,7 @@
 
 **Project Builders (Odoo Hackathon):** B. Harisankar ([@Harisankar005](https://github.com/Harisankar005)) & Rohan S ([@rohan1537](https://github.com/rohan1537))
 
-This script guides a five-minute demonstration of Brightloop.
+This script guides a five-minute demonstration of OrbitLedger.
 
 ---
 
@@ -25,7 +25,7 @@ The login page includes buttons to fill these credentials with one click.
 ## Minute 0 to 1: overview
 
 Explanation:
-> "Brightloop is a subscription management platform built with Python 3.12, FastAPI, SQLAlchemy 2.0, PostgreSQL with SQLite fallback, and React 18 TypeScript. It handles recurring billing without date drift, prevents floating-point rounding errors, tracks state changes in an append-only audit log, and provides customer self-service."
+> "OrbitLedger is a subscription management platform built with Python 3.12, FastAPI, SQLAlchemy 2.0, PostgreSQL with SQLite fallback, and React 18 TypeScript. It handles recurring billing without date drift, prevents floating-point rounding errors, tracks state changes in an append-only audit log, and provides customer self-service."
 
 Action:
 - Open `http://localhost:5173/login`.
@@ -97,7 +97,7 @@ Action:
    - Audit Log (`/audit-log`): view the append-only ledger. Click View Diff to display before and after JSON snapshots.
    - Outbox Queue (`/outbox`): view queued notification emails. Open `http://localhost:8025` to show Mailpit receiving rendered emails.
 5. Summary:
-   > "Brightloop meets the functional specification and includes operational hardening: 34 automated tests, sub-35ms p95 query latency, Argon2id authentication with token rotation, and Decimal financial arithmetic."
+   > "OrbitLedger meets the functional specification and includes operational hardening: 34 automated tests, sub-35ms p95 query latency, Argon2id authentication with token rotation, and Decimal financial arithmetic."
 
 ---
 

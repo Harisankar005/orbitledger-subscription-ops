@@ -1,47 +1,52 @@
 import React, { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { api } from "@/api/client";
+import { useToast } from "@/context/ToastContext";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
-import { Check, Circle } from "lucide-react";
+import { PasswordChecklist, checkPasswordCriteria } from "@/components/auth/PasswordChecklist";
+import { resetPasswordSchema, ResetPasswordFormData } from "@/lib/schemas";
+import { handleServerErrors } from "@/lib/form-errors";
+import { Check } from "lucide-react";
 
 export function ResetPassword() {
   const [searchParams] = useSearchParams();
-  const [token, setToken] = useState(searchParams.get("token") || "");
-  const [newPassword, setNewPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { toast } = useToast();
 
-  // Password Policy Checks (PLAN.md 5.1)
-  const hasMinLength = newPassword.length >= 9;
-  const hasUppercase = /[A-Z]/.test(newPassword);
-  const hasLowercase = /[a-z]/.test(newPassword);
-  const hasSpecial = /[^A-Za-z0-9]/.test(newPassword);
-  const isPasswordValid = hasMinLength && hasUppercase && hasLowercase && hasSpecial;
+  const {
+    register,
+    handleSubmit,
+    setError,
+    watch,
+    formState: { errors, isSubmitting },
+  } = useForm<ResetPasswordFormData>({
+    resolver: zodResolver(resetPasswordSchema),
+    defaultValues: {
+      token: searchParams.get("token") || "",
+      new_password: "",
+      confirm_password: "",
+    },
+    mode: "onChange",
+  });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!isPasswordValid) {
-      setError("Please ensure your new password satisfies all security criteria.");
-      return;
-    }
+  const newPasswordValue = watch("new_password") || "";
+  const { isValid: isPasswordCriteriaMet } = checkPasswordCriteria(newPasswordValue);
 
-    setError(null);
-    setLoading(true);
-
+  const onSubmit = async (data: ResetPasswordFormData) => {
     try {
       await api.post("/auth/reset-password", {
-        token: token.trim(),
-        new_password: newPassword,
+        token: data.token.trim(),
+        new_password: data.new_password,
       });
       setSuccess(true);
+      toast.success("Password updated successfully! All previous sessions revoked.");
     } catch (err: any) {
-      setError(err.message || "Failed to reset password. Token may be expired or invalid.");
-    } finally {
-      setLoading(false);
+      handleServerErrors(err, setError, toast, "Failed to reset password. Token may be expired or invalid.");
     }
   };
 
@@ -50,8 +55,8 @@ export function ResetPassword() {
       <div className="w-full max-w-md space-y-6">
         <div className="text-center space-y-2">
           <div className="inline-flex h-12 w-12 rounded-xl bg-indigo-600 items-center justify-center text-white font-bold text-2xl shadow-md">
-            B
-          </div>
+              O
+            </div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Set new password</h1>
           <p className="text-sm text-slate-500">Enter your secure token and choose a new password</p>
         </div>
@@ -62,12 +67,6 @@ export function ResetPassword() {
             <CardDescription>Enter the token received in your email</CardDescription>
           </CardHeader>
           <CardContent>
-            {error && (
-              <div className="mb-4 p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-sm font-medium">
-                {error}
-              </div>
-            )}
-
             {success ? (
               <div className="text-center py-4 space-y-3">
                 <div className="inline-flex h-12 w-12 rounded-full bg-emerald-100 text-emerald-600 items-center justify-center mx-auto">
@@ -84,13 +83,13 @@ export function ResetPassword() {
                 </div>
               </div>
             ) : (
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
                 <Input
                   label="Reset Token"
                   required
                   placeholder="Paste 32-character token from email"
-                  value={token}
-                  onChange={(e) => setToken(e.target.value)}
+                  error={errors.token?.message}
+                  {...register("token")}
                 />
 
                 <div>
@@ -98,41 +97,38 @@ export function ResetPassword() {
                     label="New Password"
                     type="password"
                     required
-                    placeholder="••••••••••••"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Create a strong password"
+                    error={errors.new_password?.message}
+                    {...register("new_password")}
                   />
 
-                  {/* Live Password Checklist */}
-                  <div className="mt-3 p-3 rounded-lg bg-slate-50 border border-slate-200 space-y-1.5 text-xs text-slate-600">
-                    <div className="flex items-center space-x-2">
-                      {hasMinLength ? <Check className="h-4 w-4 text-emerald-600" /> : <Circle className="h-4 w-4 text-slate-400" />}
-                      <span className={hasMinLength ? "text-emerald-700 font-medium" : ""}>At least 9 characters</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      {hasUppercase ? <Check className="h-4 w-4 text-emerald-600" /> : <Circle className="h-4 w-4 text-slate-400" />}
-                      <span className={hasUppercase ? "text-emerald-700 font-medium" : ""}>At least one uppercase letter (A-Z)</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      {hasLowercase ? <Check className="h-4 w-4 text-emerald-600" /> : <Circle className="h-4 w-4 text-slate-400" />}
-                      <span className={hasLowercase ? "text-emerald-700 font-medium" : ""}>At least one lowercase letter (a-z)</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      {hasSpecial ? <Check className="h-4 w-4 text-emerald-600" /> : <Circle className="h-4 w-4 text-slate-400" />}
-                      <span className={hasSpecial ? "text-emerald-700 font-medium" : ""}>At least one special character</span>
-                    </div>
-                  </div>
+                  <PasswordChecklist password={newPasswordValue} className="mt-3" />
                 </div>
 
-                <Button type="submit" className="w-full" isLoading={loading} disabled={!isPasswordValid || !token}>
-                  Reset Password
+                <Input
+                  label="Confirm Password"
+                  type="password"
+                  required
+                  placeholder="Repeat new password"
+                  error={errors.confirm_password?.message}
+                  {...register("confirm_password")}
+                />
+
+                <Button
+                  type="submit"
+                  className="w-full"
+                  isLoading={isSubmitting}
+                  disabled={isSubmitting || !isPasswordCriteriaMet}
+                >
+                  Save New Password
                 </Button>
               </form>
             )}
 
             <div className="mt-6 pt-4 border-t border-slate-200 text-center text-sm text-slate-600">
-              <Link to="/login" className="font-semibold text-indigo-600 hover:text-indigo-700">
-                Back to Sign in
+              Back to{" "}
+              <Link to="/login" className="font-semibold text-indigo-600 hover:text-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 rounded">
+                Sign in
               </Link>
             </div>
           </CardContent>

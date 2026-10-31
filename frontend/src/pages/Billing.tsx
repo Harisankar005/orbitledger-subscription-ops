@@ -1,27 +1,40 @@
 import React, { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { api } from "@/api/client";
+import { useToast } from "@/context/ToastContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Badge } from "@/components/ui/Badge";
+import { billingRunSchema, BillingRunFormData } from "@/lib/schemas";
+import { handleServerErrors } from "@/lib/form-errors";
 import {
-  Zap,
   Play,
   Eye,
-  CheckCircle2,
-  AlertCircle,
-  Clock,
-  Layers,
   ShieldCheck,
   RotateCw,
 } from "lucide-react";
 
 export function Billing() {
-  const [asOfDate, setAsOfDate] = useState<string>(new Date().toISOString().split("T")[0]);
   const [result, setResult] = useState<any | null>(null);
-
   const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const todayStr = new Date().toISOString().split("T")[0];
+
+  const {
+    register,
+    handleSubmit,
+    setError,
+    formState: { errors, isSubmitting },
+  } = useForm<BillingRunFormData>({
+    resolver: zodResolver(billingRunSchema),
+    defaultValues: {
+      as_of_date: todayStr,
+      dry_run: false,
+    },
+  });
 
   const billingMutation = useMutation({
     mutationFn: (data: { as_of_date?: string; dry_run: boolean }) =>
@@ -31,15 +44,18 @@ export function Billing() {
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
       queryClient.invalidateQueries({ queryKey: ["reports"] });
       queryClient.invalidateQueries({ queryKey: ["subscriptions"] });
+      if (data.dry_run) {
+        toast.info(`Dry run completed: ${data.created} invoice(s) eligible.`);
+      } else {
+        toast.success(`Billing run completed: ${data.created} invoice(s) generated!`);
+      }
     },
-    onError: (err: any) => {
-      alert(`Billing Engine Execution Failed: ${err.message || "Error"}`);
-    },
+    onError: (err: any) => handleServerErrors(err, setError, toast, "Billing execution failed"),
   });
 
-  const handleRun = (dryRun: boolean) => {
+  const onExecute = (data: BillingRunFormData, dryRun: boolean) => {
     billingMutation.mutate({
-      as_of_date: asOfDate || undefined,
+      as_of_date: data.as_of_date,
       dry_run: dryRun,
     });
   };
@@ -71,31 +87,38 @@ export function Billing() {
               </p>
             </div>
 
-            <div className="space-y-3 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+            <form
+              className="space-y-3 bg-white p-4 rounded-xl border border-slate-200 shadow-sm"
+              noValidate
+            >
               <Input
                 label="Billing As-Of Date"
                 type="date"
                 required
-                value={asOfDate}
-                onChange={(e) => setAsOfDate(e.target.value)}
+                error={errors.as_of_date?.message}
+                {...register("as_of_date")}
               />
 
               <div className="grid grid-cols-2 gap-2 pt-1">
                 <Button
+                  type="button"
                   variant="outline"
-                  onClick={() => handleRun(true)}
+                  onClick={handleSubmit((data) => onExecute(data, true))}
                   isLoading={billingMutation.isPending && billingMutation.variables?.dry_run}
+                  disabled={billingMutation.isPending || isSubmitting}
                 >
                   <Eye className="h-4 w-4 mr-1.5" /> Preview (Dry Run)
                 </Button>
                 <Button
-                  onClick={() => handleRun(false)}
+                  type="button"
+                  onClick={handleSubmit((data) => onExecute(data, false))}
                   isLoading={billingMutation.isPending && !billingMutation.variables?.dry_run}
+                  disabled={billingMutation.isPending || isSubmitting}
                 >
                   <Play className="h-4 w-4 mr-1.5" /> Run Billing
                 </Button>
               </div>
-            </div>
+            </form>
           </div>
         </CardContent>
       </Card>
@@ -166,8 +189,9 @@ export function Billing() {
                 <Button
                   variant="primary"
                   className="bg-indigo-500 hover:bg-indigo-600 text-white"
-                  onClick={() => handleRun(false)}
+                  onClick={handleSubmit((data) => onExecute(data, false))}
                   isLoading={billingMutation.isPending}
+                  disabled={billingMutation.isPending || isSubmitting}
                 >
                   <RotateCw className="h-4 w-4 mr-1.5" /> Run Billing Again (Assert 0)
                 </Button>

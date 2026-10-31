@@ -16,9 +16,9 @@ export function PortalShell() {
           <div className="flex items-center space-x-8">
             <Link to="/portal" className="flex items-center space-x-2">
               <div className="h-8 w-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold">
-                B
-              </div>
-              <span className="text-lg font-bold text-slate-900 tracking-tight">Brightloop Customer Portal</span>
+              O
+            </div>
+              <span className="text-lg font-bold text-slate-900 tracking-tight">OrbitLedger Customer Portal</span>
             </Link>
 
             <nav className="hidden sm:flex space-x-4">
@@ -84,7 +84,7 @@ export function PortalShell() {
 
       {/* Footer */}
       <footer className="border-t border-slate-200 bg-white py-3 text-center text-xs text-slate-400">
-        Brightloop Platform • Built for Odoo Hackathon by <span className="font-medium text-slate-600">B. Harisankar</span> & <span className="font-medium text-slate-600">Rohan S</span>
+        OrbitLedger Platform • Built for Odoo Hackathon by <span className="font-medium text-slate-600">B. Harisankar</span> & <span className="font-medium text-slate-600">Rohan S</span>
       </footer>
     </div>
   );

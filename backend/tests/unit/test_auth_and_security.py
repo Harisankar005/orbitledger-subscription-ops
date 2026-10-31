@@ -27,26 +27,40 @@ from app.services.auth import (
 client = TestClient(app)
 
 
-def test_production_configuration_validation():
+def test_production_configuration_validation(monkeypatch):
     """Verify that insecure production secrets, missing secrets, cookie settings, and unvalidated demo mode fail startup."""
+    # Ensure test environment variables cannot leak from host environment or .env
+    for key in [
+        "SECRET_KEY",
+        "ENVIRONMENT",
+        "SECURE_COOKIES",
+        "COOKIE_SAMESITE",
+        "DEMO_MODE",
+        "ALLOW_PRODUCTION_DEMO_OVERRIDE",
+    ]:
+        monkeypatch.delenv(key, raising=False)
+
+    def make_settings(**kwargs):
+        return Settings(_env_file=None, **kwargs)
+
     # 1. Missing secret key in production fails
     with pytest.raises(ValueError, match="SECRET_KEY environment variable is required"):
-        Settings(ENVIRONMENT="production", SECRET_KEY="")
+        make_settings(ENVIRONMENT="production", SECRET_KEY="")
 
     # 2. Short secret key in production fails
     with pytest.raises(ValueError, match="SECRET_KEY must be at least 32 characters"):
-        Settings(ENVIRONMENT="production", SECRET_KEY="short-key")
+        make_settings(ENVIRONMENT="production", SECRET_KEY="short-key")
 
     # 3. Known default / placeholder secret key in production fails
     with pytest.raises(ValueError, match="cannot use default, placeholder, or known insecure strings"):
-        Settings(ENVIRONMENT="production", SECRET_KEY="docker-compose-insecure-secret-key-32chars")
+        make_settings(ENVIRONMENT="production", SECRET_KEY="docker-compose-insecure-secret-key-32chars")
 
     with pytest.raises(ValueError, match="cannot use default, placeholder, or known insecure strings"):
-        Settings(ENVIRONMENT="production", SECRET_KEY="brightloop-super-secret-key-at-least-32-chars-2026")
+        make_settings(ENVIRONMENT="production", SECRET_KEY="brightloop-super-secret-key-at-least-32-chars-2026")
 
     # 4. Disabling secure cookies in production fails
     with pytest.raises(ValueError, match="SECURE_COOKIES cannot be False in production"):
-        Settings(
+        make_settings(
             ENVIRONMENT="production",
             SECRET_KEY="cryptographically-strong-random-key-64-characters-prod-ready-xyz",
             SECURE_COOKIES=False,
@@ -54,7 +68,7 @@ def test_production_configuration_validation():
 
     # 5. Non-strict cookie SameSite in production fails
     with pytest.raises(ValueError, match="COOKIE_SAMESITE must be 'strict' in production"):
-        Settings(
+        make_settings(
             ENVIRONMENT="production",
             SECRET_KEY="cryptographically-strong-random-key-64-characters-prod-ready-xyz",
             COOKIE_SAMESITE="lax",
@@ -62,14 +76,14 @@ def test_production_configuration_validation():
 
     # 6. Enabling DEMO_MODE in production without explicit override fails
     with pytest.raises(ValueError, match="DEMO_MODE cannot be enabled in production without explicit ALLOW_PRODUCTION_DEMO_OVERRIDE=True"):
-        Settings(
+        make_settings(
             ENVIRONMENT="production",
             SECRET_KEY="cryptographically-strong-random-key-64-characters-prod-ready-xyz",
             DEMO_MODE=True,
         )
 
     # 7. Valid production settings succeed, with DEMO_MODE defaulting to False and cookies Secure
-    valid_prod = Settings(
+    valid_prod = make_settings(
         ENVIRONMENT="production",
         SECRET_KEY="cryptographically-strong-random-key-64-characters-prod-ready-xyz",
     )
@@ -78,7 +92,7 @@ def test_production_configuration_validation():
     assert valid_prod.COOKIE_SAMESITE == "strict"
 
     # 8. Valid production settings with explicit override succeeds
-    valid_prod_override = Settings(
+    valid_prod_override = make_settings(
         ENVIRONMENT="production",
         SECRET_KEY="cryptographically-strong-random-key-64-characters-prod-ready-xyz",
         DEMO_MODE=True,
@@ -87,7 +101,7 @@ def test_production_configuration_validation():
     assert valid_prod_override.DEMO_MODE is True
 
     # 9. Local development convenience settings remain isolated and functional
-    dev_settings = Settings(ENVIRONMENT="development")
+    dev_settings = make_settings(ENVIRONMENT="development")
     assert dev_settings.SECRET_KEY is not None
     assert len(dev_settings.SECRET_KEY) >= 32
     assert dev_settings.DEMO_MODE is True

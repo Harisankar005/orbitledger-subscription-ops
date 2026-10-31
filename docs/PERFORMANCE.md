@@ -1,4 +1,4 @@
-# Brightloop performance benchmarks
+# OrbitLedger performance benchmarks
 
 ## Summary and verification
 

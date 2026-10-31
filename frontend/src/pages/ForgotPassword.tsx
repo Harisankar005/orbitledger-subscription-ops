@@ -1,24 +1,38 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { api } from "@/api/client";
+import { useToast } from "@/context/ToastContext";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
+import { forgotPasswordSchema, ForgotPasswordFormData } from "@/lib/schemas";
+import { handleServerErrors } from "@/lib/form-errors";
 import { MailCheck } from "lucide-react";
 
 export function ForgotPassword() {
-  const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
+  const {
+    register,
+    handleSubmit,
+    setError,
+    formState: { errors, isSubmitting },
+  } = useForm<ForgotPasswordFormData>({
+    resolver: zodResolver(forgotPasswordSchema),
+    defaultValues: { email: "" },
+  });
+
+  const onSubmit = async (data: ForgotPasswordFormData) => {
     try {
-      await api.post("/auth/forgot-password", { email });
-    } finally {
+      await api.post("/auth/forgot-password", { email: data.email });
       setSubmitted(true);
-      setLoading(false);
+      toast.success("Password reset request sent. Check Mailpit for token.");
+    } catch (err: any) {
+      handleServerErrors(err, setError, toast, "Failed to submit request.");
+      setSubmitted(true);
     }
   };
 
@@ -27,8 +41,8 @@ export function ForgotPassword() {
       <div className="w-full max-w-md space-y-6">
         <div className="text-center space-y-2">
           <div className="inline-flex h-12 w-12 rounded-xl bg-indigo-600 items-center justify-center text-white font-bold text-2xl shadow-md">
-            B
-          </div>
+              O
+            </div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Reset your password</h1>
           <p className="text-sm text-slate-500">We'll send a single-use secure reset token</p>
         </div>
@@ -36,7 +50,7 @@ export function ForgotPassword() {
         <Card>
           <CardHeader>
             <CardTitle>Forgot password</CardTitle>
-            <CardDescription>Enter the email address associated with your Brightloop account</CardDescription>
+            <CardDescription>Enter the email address associated with your OrbitLedger account</CardDescription>
           </CardHeader>
           <CardContent>
             {submitted ? (
@@ -57,16 +71,16 @@ export function ForgotPassword() {
                 </div>
               </div>
             ) : (
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
                 <Input
                   label="Account Email"
                   type="email"
                   required
                   placeholder="admin@brightloop.test"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  error={errors.email?.message}
+                  {...register("email")}
                 />
-                <Button type="submit" className="w-full" isLoading={loading}>
+                <Button type="submit" className="w-full" isLoading={isSubmitting} disabled={isSubmitting}>
                   Send Reset Link
                 </Button>
               </form>
@@ -74,7 +88,7 @@ export function ForgotPassword() {
 
             <div className="mt-6 pt-4 border-t border-slate-200 text-center text-sm text-slate-600">
               Remember your password?{" "}
-              <Link to="/login" className="font-semibold text-indigo-600 hover:text-indigo-700">
+              <Link to="/login" className="font-semibold text-indigo-600 hover:text-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 rounded">
                 Back to Sign in
               </Link>
             </div>

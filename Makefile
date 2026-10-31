@@ -1,7 +1,7 @@
 .PHONY: help up down migrate seed seed-small test perf demo lint frontend-dev backend-dev
 
 help:
-	@echo "Brightloop Subscription Management System"
+	@echo "OrbitLedger Subscription Operations"
 	@echo "make up          - Start all services with Docker Compose"
 	@echo "make down        - Stop all Docker Compose services"
 	@echo "make migrate     - Run database migrations"
@@ -28,8 +28,9 @@ seed-small:
 	cd backend && python -m app.seed --small
 
 test:
-	cd backend && pytest -v --cov=app
+	cd backend && pytest -v --cov=app --cov=app/services
 	python scripts/verify_api_routes.py
+	cd frontend && npm run test
 
 perf:
 	cd backend && python -m app.perf
@@ -45,3 +46,4 @@ demo:
 
 lint:
 	cd backend && ruff check . && mypy app
+	cd frontend && npm run lint

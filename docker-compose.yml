@@ -3,7 +3,7 @@ version: "3.9"
 services:
   db:
     image: postgres:16-alpine
-    container_name: brightloop-db
+    container_name: orbitledger-db
     environment:
       POSTGRES_USER: brightloop
       POSTGRES_PASSWORD: brightloop
@@ -20,7 +20,7 @@ services:
 
   mailpit:
     image: axllent/mailpit:latest
-    container_name: brightloop-mailpit
+    container_name: orbitledger-mailpit
     ports:
       - "1025:1025"
       - "8025:8025"
@@ -29,22 +29,28 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: brightloop-api
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    container_name: orbitledger-api
+    command: sh -c "python -m alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
     environment:
       DATABASE_URL: postgresql+psycopg://brightloop:brightloop@db:5432/brightloop
-      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY environment variable must be explicitly set}
-      ENVIRONMENT: ${ENVIRONMENT:-production}
-      DEMO_MODE: ${DEMO_MODE:-false}
-      ALLOW_PRODUCTION_DEMO_OVERRIDE: ${ALLOW_PRODUCTION_DEMO_OVERRIDE:-false}
-      SECURE_COOKIES: ${SECURE_COOKIES:-true}
-      COOKIE_SAMESITE: strict
+      SECRET_KEY: ${SECRET_KEY:-brightloop-dev-secret-key-only-for-local-development-32chars}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      DEMO_MODE: ${DEMO_MODE:-true}
+      ALLOW_PRODUCTION_DEMO_OVERRIDE: ${ALLOW_PRODUCTION_DEMO_OVERRIDE:-true}
+      SECURE_COOKIES: ${SECURE_COOKIES:-false}
+      COOKIE_SAMESITE: lax
       SMTP_HOST: mailpit
       SMTP_PORT: 1025
       SMTP_FROM: billing@brightloop.test
       EMBEDDED_WORKER: "false"
     ports:
       - "8000:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/api/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
     depends_on:
       db:
         condition: service_healthy
@@ -55,21 +61,23 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: brightloop-worker
+    container_name: orbitledger-worker
     command: python -m app.worker
     environment:
       DATABASE_URL: postgresql+psycopg://brightloop:brightloop@db:5432/brightloop
-      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY environment variable must be explicitly set}
-      ENVIRONMENT: ${ENVIRONMENT:-production}
-      DEMO_MODE: ${DEMO_MODE:-false}
-      ALLOW_PRODUCTION_DEMO_OVERRIDE: ${ALLOW_PRODUCTION_DEMO_OVERRIDE:-false}
-      SECURE_COOKIES: ${SECURE_COOKIES:-true}
-      COOKIE_SAMESITE: strict
+      SECRET_KEY: ${SECRET_KEY:-brightloop-dev-secret-key-only-for-local-development-32chars}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      DEMO_MODE: ${DEMO_MODE:-true}
+      ALLOW_PRODUCTION_DEMO_OVERRIDE: ${ALLOW_PRODUCTION_DEMO_OVERRIDE:-true}
+      SECURE_COOKIES: ${SECURE_COOKIES:-false}
+      COOKIE_SAMESITE: lax
       SMTP_HOST: mailpit
       SMTP_PORT: 1025
       SMTP_FROM: billing@brightloop.test
     depends_on:
       db:
+        condition: service_healthy
+      api:
         condition: service_healthy
       mailpit:
         condition: service_started
@@ -78,11 +86,18 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: brightloop-web
+    container_name: orbitledger-web
     ports:
       - "80:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost/ || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
     depends_on:
-      - api
+      api:
+        condition: service_healthy
 
 volumes:
   pgdata:

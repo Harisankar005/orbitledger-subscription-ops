@@ -92,7 +92,7 @@ def generate_invoice_html(inv: Invoice) -> str:
         <div class="container">
             <div class="header">
                 <div>
-                    <div class="brand">Brightloop</div>
+                    <div class="brand">OrbitLedger</div>
                     <div style="color: #64748b; font-size: 13px;">Subscription Management Cloud</div>
                 </div>
                 <div class="meta">
@@ -265,7 +265,7 @@ def send_invoice(
 
     msg = OutboxMessage(
         to_email=inv.customer.email,
-        subject=f"Your Invoice {inv.number} from Brightloop",
+        subject=f"Your Invoice {inv.number} from OrbitLedger",
         body_html=html_body,
         kind="invoice_sent",
         status="pending",

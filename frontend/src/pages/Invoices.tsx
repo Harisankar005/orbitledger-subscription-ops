@@ -8,9 +8,13 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
 import { Dialog } from "@/components/ui/Dialog";
-import { Check, Mail, Printer, ArrowRight, CheckSquare, Square } from "lucide-react";
+import { TableSkeleton } from "@/components/ui/Skeleton";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { useToast } from "@/context/ToastContext";
+import { Check, Mail, Printer, ArrowRight, CheckSquare, Square, FileText } from "lucide-react";
 
 export function Invoices() {
+  const toast = useToast();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
@@ -34,9 +38,10 @@ export function Invoices() {
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
       setSelectedIds([]);
       setBulkResultModal(res);
+      toast.success(`Bulk action completed: ${res.succeeded} succeeded, ${res.failed} failed`);
     },
     onError: (err: any) => {
-      alert(`Bulk Action Failed: ${err.message || "Error"}`);
+      toast.error(err.message || "Bulk Action Failed");
     },
   });
 
@@ -140,97 +145,166 @@ export function Invoices() {
             </div>
           </div>
 
-          {/* Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-slate-50 text-slate-500 uppercase text-xs border-b border-slate-200">
-                <tr>
-                  <th className="px-4 py-3 w-10">
-                    <button onClick={toggleSelectAll} className="cursor-pointer">
-                      {selectedIds.length > 0 && selectedIds.length === filteredInvoices.length ? (
-                        <CheckSquare className="h-4 w-4 text-indigo-600" />
-                      ) : (
-                        <Square className="h-4 w-4 text-slate-400" />
-                      )}
-                    </button>
-                  </th>
-                  <th className="px-4 py-3">Number</th>
-                  <th className="px-4 py-3">Customer</th>
-                  <th className="px-4 py-3">Issue Date</th>
-                  <th className="px-4 py-3">Due Date</th>
-                  <th className="px-4 py-3 text-right">Total Amount</th>
-                  <th className="px-4 py-3 text-right">Amount Paid</th>
-                  <th className="px-4 py-3 text-center">Status</th>
-                  <th className="px-4 py-3 text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {invoicesQuery.isLoading ? (
-                  <tr>
-                    <td colSpan={9} className="text-center py-8 text-slate-400">
-                      Loading invoices...
-                    </td>
-                  </tr>
-                ) : filteredInvoices.length === 0 ? (
-                  <tr>
-                    <td colSpan={9} className="text-center py-8 text-slate-400">
-                      No invoices found
-                    </td>
-                  </tr>
-                ) : (
-                  filteredInvoices.map((inv) => (
-                    <tr key={inv.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-4 py-3.5">
-                        <button onClick={() => toggleSelectOne(inv.id)} className="cursor-pointer">
+          {/* Invoices List / Table */}
+          {invoicesQuery.isLoading ? (
+            <div className="py-4">
+              <TableSkeleton rows={6} cols={9} />
+            </div>
+          ) : filteredInvoices.length === 0 ? (
+            <div className="py-4">
+              <EmptyState
+                icon={FileText}
+                title="No invoices found"
+                description={
+                  searchTerm || statusFilter !== "all"
+                    ? "No invoices match your active filter or search."
+                    : "Invoices generated from billing runs or subscriptions will show up here."
+                }
+              />
+            </div>
+          ) : (
+            <>
+              {/* Desktop Table View */}
+              <div className="hidden sm:block overflow-x-auto" role="region" tabIndex={0} aria-label="Invoices list table">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-slate-50 text-slate-500 uppercase text-xs border-b border-slate-200">
+                    <tr>
+                      <th className="px-4 py-3 w-10">
+                        <button onClick={toggleSelectAll} className="cursor-pointer" aria-label="Select all invoices">
+                          {selectedIds.length > 0 && selectedIds.length === filteredInvoices.length ? (
+                            <CheckSquare className="h-4 w-4 text-indigo-600" />
+                          ) : (
+                            <Square className="h-4 w-4 text-slate-400" />
+                          )}
+                        </button>
+                      </th>
+                      <th className="px-4 py-3">Number</th>
+                      <th className="px-4 py-3">Customer</th>
+                      <th className="px-4 py-3">Issue Date</th>
+                      <th className="px-4 py-3">Due Date</th>
+                      <th className="px-4 py-3 text-right">Total Amount</th>
+                      <th className="px-4 py-3 text-right">Amount Paid</th>
+                      <th className="px-4 py-3 text-center">Status</th>
+                      <th className="px-4 py-3 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredInvoices.map((inv) => (
+                      <tr key={inv.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-4 py-3.5">
+                          <button onClick={() => toggleSelectOne(inv.id)} className="cursor-pointer" aria-label={`Select invoice ${inv.number}`}>
+                            {selectedIds.includes(inv.id) ? (
+                              <CheckSquare className="h-4 w-4 text-indigo-600" />
+                            ) : (
+                              <Square className="h-4 w-4 text-slate-400" />
+                            )}
+                          </button>
+                        </td>
+                        <td className="px-4 py-3.5 font-semibold text-indigo-600">
+                          <Link to={`/invoices/${inv.id}`} className="hover:underline">
+                            {inv.number}
+                          </Link>
+                        </td>
+                        <td className="px-4 py-3.5 font-medium text-slate-800">
+                          {inv.customer?.name || `Customer #${inv.customer_id}`}
+                        </td>
+                        <td className="px-4 py-3.5 text-slate-600">{formatDate(inv.issue_date)}</td>
+                        <td className="px-4 py-3.5 text-slate-600">{formatDate(inv.due_date)}</td>
+                        <td className="px-4 py-3.5 text-right font-bold text-slate-900">
+                          {formatCurrency(inv.total, inv.currency)}
+                        </td>
+                        <td className="px-4 py-3.5 text-right text-emerald-700 font-semibold">
+                          {formatCurrency(inv.amount_paid, inv.currency)}
+                        </td>
+                        <td className="px-4 py-3.5 text-center">
+                          <Badge status={inv.payment_status || inv.status} />
+                        </td>
+                        <td className="px-4 py-3.5 text-right space-x-1">
+                          <a
+                            href={`/api/invoices/${inv.id}/print`}
+                            target="_blank"
+                            rel="noreferrer"
+                            title="Print PDF"
+                            aria-label={`Print invoice ${inv.number}`}
+                          >
+                            <Button variant="ghost" size="sm">
+                              <Printer className="h-3.5 w-3.5" />
+                            </Button>
+                          </a>
+                          <Link to={`/invoices/${inv.id}`} aria-label={`View invoice ${inv.number}`}>
+                            <Button variant="ghost" size="sm">
+                              View <ArrowRight className="h-3.5 w-3.5 ml-1" />
+                            </Button>
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="sm:hidden space-y-3">
+                {filteredInvoices.map((inv) => (
+                  <div key={inv.id} className="p-4 bg-white border border-slate-200 rounded-xl shadow-xs space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => toggleSelectOne(inv.id)} className="cursor-pointer" aria-label={`Select invoice ${inv.number}`}>
                           {selectedIds.includes(inv.id) ? (
                             <CheckSquare className="h-4 w-4 text-indigo-600" />
                           ) : (
                             <Square className="h-4 w-4 text-slate-400" />
                           )}
                         </button>
-                      </td>
-                      <td className="px-4 py-3.5 font-semibold text-indigo-600">
-                        <Link to={`/invoices/${inv.id}`} className="hover:underline">
-                          {inv.number}
-                        </Link>
-                      </td>
-                      <td className="px-4 py-3.5 font-medium text-slate-800">
-                        {inv.customer?.name || `Customer #${inv.customer_id}`}
-                      </td>
-                      <td className="px-4 py-3.5 text-slate-600">{formatDate(inv.issue_date)}</td>
-                      <td className="px-4 py-3.5 text-slate-600">{formatDate(inv.due_date)}</td>
-                      <td className="px-4 py-3.5 text-right font-bold text-slate-900">
-                        {formatCurrency(inv.total, inv.currency)}
-                      </td>
-                      <td className="px-4 py-3.5 text-right text-emerald-700 font-semibold">
-                        {formatCurrency(inv.amount_paid, inv.currency)}
-                      </td>
-                      <td className="px-4 py-3.5 text-center">
-                        <Badge status={inv.payment_status || inv.status} />
-                      </td>
-                      <td className="px-4 py-3.5 text-right space-x-1">
-                        <a
-                          href={`/api/invoices/${inv.id}/print`}
-                          target="_blank"
-                          rel="noreferrer"
-                          title="Print PDF"
-                        >
-                          <Button variant="ghost" size="sm">
-                            <Printer className="h-3.5 w-3.5" />
-                          </Button>
-                        </a>
-                        <Link to={`/invoices/${inv.id}`}>
-                          <Button variant="ghost" size="sm">
-                            View <ArrowRight className="h-3.5 w-3.5 ml-1" />
-                          </Button>
-                        </Link>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                        <div>
+                          <Link to={`/invoices/${inv.id}`} className="font-semibold text-indigo-600 hover:underline">
+                            {inv.number}
+                          </Link>
+                          <p className="text-xs text-slate-500 font-medium">
+                            {inv.customer?.name || `Customer #${inv.customer_id}`}
+                          </p>
+                        </div>
+                      </div>
+                      <Badge status={inv.payment_status || inv.status} />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-xs text-slate-600 pt-1 border-t border-slate-100">
+                      <div>
+                        <span className="text-slate-400 block">Due Date</span>
+                        <span>{formatDate(inv.due_date)}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block">Total / Paid</span>
+                        <span className="font-bold text-slate-900">{formatCurrency(inv.total, inv.currency)}</span>
+                        <span className="text-emerald-700 block text-[11px] font-medium">
+                          Paid: {formatCurrency(inv.amount_paid, inv.currency)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                      <a
+                        href={`/api/invoices/${inv.id}/print`}
+                        target="_blank"
+                        rel="noreferrer"
+                        title="Print PDF"
+                        aria-label={`Print invoice ${inv.number}`}
+                      >
+                        <Button variant="outline" size="sm">
+                          <Printer className="h-3.5 w-3.5 mr-1" /> Print
+                        </Button>
+                      </a>
+                      <Link to={`/invoices/${inv.id}`} className="flex-1" aria-label={`View invoice ${inv.number}`}>
+                        <Button variant="ghost" size="sm" className="w-full">
+                          View Details <ArrowRight className="h-3.5 w-3.5 ml-1" />
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 

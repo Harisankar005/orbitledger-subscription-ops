@@ -1,6 +1,6 @@
-# Brightloop security and threat model
+# OrbitLedger security and threat model
 
-Brightloop uses defense-in-depth across database constraints, server dependencies, and user interfaces. This document outlines the threats evaluated and the controls implemented to prevent them.
+OrbitLedger uses defense-in-depth across database constraints, server dependencies, and user interfaces. This document outlines the threats evaluated and the controls implemented to prevent them.
 
 ---
 
@@ -95,3 +95,18 @@ The API provides no routes to edit or delete audit log rows.
    - `Referrer-Policy: strict-origin-when-cross-origin`
 2. **Parameterized queries.** All database calls use typed SQLAlchemy expressions, preventing SQL injection.
 3. **Transactional outbox.** The system writes email messages to the `outbox_messages` table within the same database transaction as the business action. A background worker delivers messages asynchronously to Mailpit, preventing mail server slowdowns from delaying user requests.
+
+---
+
+## 6. Security verification and test coverage
+
+The security and idempotency controls are actively validated across 60 automated backend tests in pytest:
+* `tests/authz/test_authz_matrix.py`: Verifies staff cannot perform admin operations, customers cannot access cross-tenant records, and unauthenticated requests receive 401.
+* `tests/concurrency/test_billing_idempotency.py`: Verifies atomic lease claims, stale worker timeout recovery, cross-endpoint scope isolation, and identical response caching under simultaneous concurrent requests.
+* `tests/unit/test_auth_and_security.py`: Verifies production configuration enforcement (rejecting placeholder keys, insecure cookies, lax SameSite, and unauthenticated demo mode), refresh cookie HttpOnly attributes, password complexity rules, lockout after 5 failed attempts, enumeration resistance, and token rotation family revocation.
+
+### Known limitations in security posture
+
+1. **TLS termination**: Docker Compose defaults to HTTP on port 80 for self-contained local testing; production deployment requires a TLS-terminating reverse proxy (e.g. Traefik, Nginx, or AWS ALB) with HSTS headers.
+2. **Rate limiting storage**: Rate limiting uses SlowAPI's in-memory backend for local nodes; multi-replica horizontal clustering requires configuring SlowAPI with a shared Redis instance.
+3. **Demo mode guard**: When `DEMO_MODE=true` is set, clock advancement is accessible to users with the `admin` role only. Production deployments strictly disable this endpoint unless `ALLOW_PRODUCTION_DEMO_OVERRIDE=true` is explicitly provided.

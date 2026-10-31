@@ -112,6 +112,6 @@ def export_csv(
     _: User = Depends(require_roles("admin", "staff")),
 ):
     csv_data = reports_service.export_report_csv(db, kind)
-    response.headers["Content-Disposition"] = f"attachment; filename=brightloop_{kind}_{date.today().isoformat()}.csv"
+    response.headers["Content-Disposition"] = f"attachment; filename=orbitledger_{kind}_{date.today().isoformat()}.csv"
     response.headers["Content-Type"] = "text/csv"
     return csv_data

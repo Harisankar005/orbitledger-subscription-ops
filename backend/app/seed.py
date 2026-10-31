@@ -46,7 +46,7 @@ def seed_database(small: bool = True):
     Base.metadata.create_all(bind=engine)
 
     with SessionLocal() as db:
-        print("[SEED] Seeding Brightloop database (small=" + str(small) + ")...")
+        print("[SEED] Seeding OrbitLedger database (small=" + str(small) + ")...")
 
         # 1. Number Counters
         db.add(NumberCounter(name="SUB", next_value=1))
@@ -108,7 +108,7 @@ def seed_database(small: bool = True):
 
         # 6. Products & Variants (including Brand=Odoo +560)
         prod_erp = Product(
-            name="Brightloop Cloud ERP Seat",
+            name="OrbitLedger Cloud ERP Seat",
             type="software",
             sales_price=Decimal("1200.00"),
             cost_price=Decimal("300.00"),
@@ -622,7 +622,7 @@ def seed_database(small: bool = True):
 
         db.commit()
 
-        print("\n[SUCCESS] Brightloop Seed Data generated successfully!")
+        print("\n[SUCCESS] OrbitLedger Seed Data generated successfully!")
         print("=" * 60)
         print("DEMO LOGIN CREDENTIALS:")
         print("  - Admin:    admin@brightloop.test    / Admin@1234")
@@ -633,7 +633,7 @@ def seed_database(small: bool = True):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Seed Brightloop database")
+    parser = argparse.ArgumentParser(description="Seed OrbitLedger database")
     parser.add_argument("--small", action="store_true", default=True, help="Seed small demo dataset (default: True)")
     parser.add_argument("--full", action="store_true", help="Seed full scale performance dataset")
     args = parser.parse_args()

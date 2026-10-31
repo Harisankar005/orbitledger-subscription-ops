@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "@/features/auth/AuthContext";
 import { api } from "@/api/client";
+import { useToast } from "@/context/ToastContext";
 import { LiveIndicator } from "@/components/ui/LiveIndicator";
 import { Button } from "@/components/ui/Button";
 import {
@@ -19,12 +20,12 @@ import {
   X,
   FastForward,
   LogOut,
-  User as UserIcon,
   Package,
 } from "lucide-react";
 
 export function Shell() {
   const { user, logout, hasRole } = useAuth();
+  const toast = useToast();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [timeTraveling, setTimeTraveling] = useState(false);
   const navigate = useNavigate();
@@ -35,10 +36,10 @@ export function Shell() {
       const res = await api.post<{ new_date: string; billing_result: { created: number } }>("/demo/advance-clock", {
         months: 1,
       });
-      alert(`Simulated date advanced by 1 month to ${res.new_date}! Billing engine generated ${res.billing_result.created} invoices.`);
+      toast.success(`Simulated date advanced to ${res.new_date}! Billing engine generated ${res.billing_result.created} invoices.`);
       window.location.reload();
     } catch (err: any) {
-      alert(`Time-travel error: ${err.message || "Failed"}`);
+      toast.error(`Time-travel error: ${err.message || "Failed"}`);
     } finally {
       setTimeTraveling(false);
     }
@@ -68,9 +69,9 @@ export function Shell() {
         <div className="flex items-center justify-between h-16 px-6 border-b border-slate-800">
           <Link to="/" className="flex items-center space-x-2">
             <div className="h-8 w-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-lg">
-              B
+              O
             </div>
-            <span className="text-xl font-bold text-white tracking-tight">Brightloop</span>
+            <span className="text-xl font-bold text-white tracking-tight">OrbitLedger</span>
           </Link>
         </div>
 
@@ -165,7 +166,7 @@ export function Shell() {
               {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </button>
             <div className="hidden sm:block text-slate-500 text-sm font-medium">
-              Brightloop Subscription Cloud
+              OrbitLedger Subscription Operations
             </div>
           </div>
 

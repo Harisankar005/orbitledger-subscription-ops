@@ -251,7 +251,7 @@ def request_password_reset(db: Session, email: str, request_id: Optional[str] = 
         reset_link = f"/reset-password?token={raw_token}"
         email_body = f"""
         <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px;">
-            <h2>Reset Your Brightloop Password</h2>
+            <h2>Reset Your OrbitLedger Password</h2>
             <p>Hello {user.full_name},</p>
             <p>We received a request to reset your password. Use the token or link below within {settings.PASSWORD_RESET_TOKEN_MINUTES} minutes:</p>
             <p style="background: #f1f5f9; padding: 12px; font-family: monospace; font-size: 16px;">{raw_token}</p>
@@ -261,7 +261,7 @@ def request_password_reset(db: Session, email: str, request_id: Optional[str] = 
         """
         outbox = OutboxMessage(
             to_email=clean_email,
-            subject="Reset your Brightloop password",
+            subject="Reset your OrbitLedger password",
             body_html=email_body,
             kind="password_reset",
             status="pending",
