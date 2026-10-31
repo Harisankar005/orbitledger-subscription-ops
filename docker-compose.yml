@@ -33,13 +33,14 @@ services:
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     environment:
       DATABASE_URL: postgresql+psycopg://brightloop:brightloop@db:5432/brightloop
-      SECRET_KEY: docker-compose-insecure-secret-key-32chars
-      ENVIRONMENT: production
+      SECRET_KEY: ${SECRET_KEY}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      DEMO_MODE: ${DEMO_MODE:-false}
+      SECURE_COOKIES: ${SECURE_COOKIES:-true}
       SMTP_HOST: mailpit
       SMTP_PORT: 1025
       SMTP_FROM: billing@brightloop.test
       EMBEDDED_WORKER: "false"
-      DEMO_MODE: "true"
     ports:
       - "8000:8000"
     depends_on:
@@ -56,12 +57,12 @@ services:
     command: python -m app.worker
     environment:
       DATABASE_URL: postgresql+psycopg://brightloop:brightloop@db:5432/brightloop
-      SECRET_KEY: docker-compose-insecure-secret-key-32chars
-      ENVIRONMENT: production
+      SECRET_KEY: ${SECRET_KEY}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      DEMO_MODE: ${DEMO_MODE:-false}
       SMTP_HOST: mailpit
       SMTP_PORT: 1025
       SMTP_FROM: billing@brightloop.test
-      DEMO_MODE: "true"
     depends_on:
       db:
         condition: service_healthy

@@ -9,7 +9,7 @@ This document equips the team with concise, authoritative answers to deep engine
 > "We implement a 3-layer defense against double billing:
 > 1. **Database Constraint (The Ultimate Guard)**: We enforce a compound unique constraint on the `invoices` table: `UNIQUE(subscription_id, period_start)`. At the database engine level, two concurrent transactions attempting to insert an invoice for the same subscription and period will result in a unique violation.
 > 2. **Serialized Row Locking**: On PostgreSQL, our billing query runs with `SELECT ... FOR UPDATE SKIP LOCKED` (and serializes via row locks on SQLite). A worker locks eligible subscriptions before processing, ensuring sibling workers skip records currently under active generation.
-> 3. **Idempotency Keys**: API endpoints like `POST /api/billing/run` and `POST /api/payments` accept an `Idempotency-Key` header. Requests with duplicate keys return the cached result payload without re-executing transactions."
+> 3. **Idempotency Keys & Payload Verification**: API endpoints like `POST /api/billing/run` and `POST /api/payments` require an `Idempotency-Key` header with canonical SHA-256 payload hashing (`execute_with_idempotency`). Requests with duplicate keys return the cached result payload without re-executing transactions. Replaying a key with modified payload fails with `409 Conflict`, and concurrent duplicate requests are blocked via atomic in-progress reservations."
 
 ---
 

@@ -11,9 +11,9 @@ Before speaking to the judges, verify both processes are running:
 3. **Mailpit UI**: `http://localhost:8025` (Local email inbox)
 
 **Demo Credentials**:
-- **Admin**: `admin@brightloop.test` / `Admin@12345`
-- **Staff**: `staff1@brightloop.test` / `Staff@12345`
-- **Customer**: `customer@brightloop.test` / `Customer@12345`
+- **Admin**: `admin@brightloop.test` / `Admin@1234`
+- **Staff**: `staff1@brightloop.test` / `Staff@1234`
+- **Customer**: `customer@brightloop.test` / `Customer@1234`
 
 *(Tip: The login screen has one-click "Demo Fill" buttons for instant authentication)*
 

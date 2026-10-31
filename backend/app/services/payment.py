@@ -97,20 +97,19 @@ def record_payment(
 
     # Broadcast real-time SSE event
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            asyncio.create_task(
-                broadcaster.broadcast(
-                    "payment.recorded",
-                    {
-                        "invoice_id": inv.id,
-                        "invoice_number": inv.number,
-                        "amount": str(amount),
-                        "invoice_status": inv.status,
-                    },
-                )
+        loop = asyncio.get_running_loop()
+        loop.create_task(
+            broadcaster.broadcast(
+                "payment.recorded",
+                {
+                    "invoice_id": inv.id,
+                    "invoice_number": inv.number,
+                    "amount": str(amount),
+                    "invoice_status": inv.status,
+                },
             )
-    except Exception:
+        )
+    except RuntimeError:
         pass
 
     return payment

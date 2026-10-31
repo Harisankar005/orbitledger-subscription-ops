@@ -8,11 +8,11 @@ All critical paths achieved response times significantly below their allocated p
 
 | Endpoint | Method | Scope / Query Pattern | Budget (p95) | Measured p50 | Measured p95 | Status |
 |---|---|---|---|---|---|---|
-| `/api/reports/summary` | `GET` | Dashboard aggregations, MRR normalization & aging | < 800 ms | 0.28 ms | 0.52 ms | **PASS** |
-| `/api/subscriptions` | `GET` | Paginated subscription list with status index | < 300 ms | 16.50 ms | 19.80 ms | **PASS** |
-| `/api/invoices` | `GET` | Paginated invoice list with customer join & aging | < 300 ms | 14.80 ms | 18.20 ms | **PASS** |
-| `/api/customers` | `GET` | Case-insensitive indexed search (`search=Acme`) | < 300 ms | 12.44 ms | 14.47 ms | **PASS** |
-| `/api/billing/run` | `POST` | Batch due-subscription evaluation (50 iterations) | < 20,000 ms | 1,240.32 ms | 1,389.69 ms | **PASS** |
+| `/api/reports/summary` | `GET` | Dashboard aggregations, MRR normalization & aging | < 800 ms | 6.74 ms | 9.11 ms | **PASS** |
+| `/api/subscriptions` | `GET` | Paginated subscription list with status index | < 300 ms | 21.02 ms | 30.98 ms | **PASS** |
+| `/api/invoices` | `GET` | Paginated invoice list with customer join & aging | < 300 ms | 22.13 ms | 24.31 ms | **PASS** |
+| `/api/customers` | `GET` | Case-insensitive indexed search (`search=Acme`) | < 300 ms | 7.07 ms | 9.22 ms | **PASS** |
+| `/api/billing/run` | `POST` | Batch due-subscription evaluation (50 iterations) | < 20,000 ms | 7,890.24 ms | 15,080.18 ms | **PASS** |
 
 ---
 

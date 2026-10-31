@@ -4,6 +4,7 @@ from typing import Optional, Tuple
 
 from sqlalchemy.orm import Session
 
+from app.clock import ensure_utc
 from app.config import settings
 from app.errors import (
     ConflictError,
@@ -87,8 +88,9 @@ def login_user(
 
     # Prevent timing attack / user enumeration while checking lock
     if user:
-        if user.locked_until and user.locked_until > now_utc:
-            remaining = int((user.locked_until - now_utc).total_seconds() / 60) + 1
+        locked_until_utc = ensure_utc(user.locked_until)
+        if locked_until_utc and locked_until_utc > now_utc:
+            remaining = int((locked_until_utc - now_utc).total_seconds() / 60) + 1
             raise ForbiddenError(f"Account is temporarily locked. Please try again in {remaining} minutes.")
 
         if not user.is_active:
@@ -186,7 +188,8 @@ def rotate_refresh_token(
         )
         raise UnauthorizedError("Security violation: refresh token reuse detected. All active sessions invalidated.")
 
-    if token_record.expires_at < now_utc:
+    expires_at_utc = ensure_utc(token_record.expires_at)
+    if expires_at_utc and expires_at_utc < now_utc:
         raise UnauthorizedError("Refresh token has expired")
 
     user = db.query(User).filter(User.id == token_record.user_id).first()
@@ -285,10 +288,13 @@ def reset_password(db: Session, token: str, new_password: str, request_id: Optio
     reset_record = db.query(PasswordResetToken).filter(
         PasswordResetToken.token_hash == token_hash,
         PasswordResetToken.used_at.is_(None),
-        PasswordResetToken.expires_at > now_utc,
     ).first()
 
     if not reset_record:
+        raise ValidationError("Invalid or expired password reset token", fields={"token": "Reset token is invalid or has expired"})
+
+    reset_expires_utc = ensure_utc(reset_record.expires_at)
+    if reset_expires_utc and reset_expires_utc < now_utc:
         raise ValidationError("Invalid or expired password reset token", fields={"token": "Reset token is invalid or has expired"})
 
     user = db.query(User).filter(User.id == reset_record.user_id).first()

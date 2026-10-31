@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.deps import require_roles
+from app.errors import ValidationError
 from app.models.billing import Payment
 from app.models.identity import User
 from app.schemas.invoice import PaymentResponse
@@ -12,6 +13,28 @@ from app.schemas.payment import PaymentCreate
 from app.services import payment as payment_service
 
 router = APIRouter(tags=["payments"])
+
+
+@router.post("/payments", response_model=PaymentResponse, status_code=status.HTTP_201_CREATED)
+def record_payment_direct(
+    req: PaymentCreate,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles("admin", "staff")),
+    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
+):
+    if not req.invoice_id:
+        raise ValidationError("invoice_id is required", fields={"invoice_id": "Must specify invoice_id"})
+    req_id = getattr(request.state, "request_id", None)
+    payment = payment_service.record_payment(
+        db=db,
+        invoice_id=req.invoice_id,
+        req=req,
+        actor_id=current_user.id,
+        idempotency_key=idempotency_key,
+        request_id=req_id,
+    )
+    return PaymentResponse.model_validate(payment)
 
 
 @router.get("/payments", response_model=Dict[str, Any])

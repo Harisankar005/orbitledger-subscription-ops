@@ -3,6 +3,7 @@ from typing import Optional
 from fastapi import APIRouter, Cookie, Depends, Request, Response, status
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.db import get_db
 from app.deps import get_current_user
 from app.models.identity import User
@@ -33,10 +34,10 @@ def set_refresh_cookie(response: Response, raw_token: str):
         key=REFRESH_COOKIE_NAME,
         value=raw_token,
         httponly=True,
-        secure=False,  # Set to True in production HTTPS
-        samesite="lax",
+        secure=settings.is_cookie_secure,
+        samesite="strict",
         path="/api/auth",
-        max_age=7 * 24 * 3600,
+        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 3600,
     )
 
 
@@ -44,6 +45,9 @@ def clear_refresh_cookie(response: Response):
     response.delete_cookie(
         key=REFRESH_COOKIE_NAME,
         path="/api/auth",
+        httponly=True,
+        secure=settings.is_cookie_secure,
+        samesite="strict",
     )
 
 

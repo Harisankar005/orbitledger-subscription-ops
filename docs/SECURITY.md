@@ -14,8 +14,16 @@ Brightloop is engineered with defense-in-depth principles across the entire appl
 
 ### Threat: Token Theft, XSS Exfiltration & Session Hijacking
 - **Mitigation 1 (In-Memory Access Tokens)**: Short-lived access JWTs (15 minutes) are kept exclusively in JavaScript memory; they are never persisted in `localStorage` or `sessionStorage`, rendering them immune to extraction via XSS.
-- **Mitigation 2 (HttpOnly Refresh Cookies)**: Refresh tokens are delivered via an `httpOnly`, `SameSite=Strict`, `Path=/api/auth` cookie, preventing client-side script inspection.
+- **Mitigation 2 (HttpOnly Refresh Cookies)**: Refresh tokens are delivered via an `httpOnly`, `SameSite=Strict`, `Path=/api/auth` cookie, with `Secure=True` enforced in production environments, preventing client-side script inspection.
 - **Mitigation 3 (Token Family Rotation & Reuse Detection)**: Every refresh request invalidates the presenting refresh token and issues a new one within the same family ID. If a previously consumed or revoked token is replayed, the system detects a compromise and **immediately revokes all active tokens in that entire family**, requiring re-authentication.
+
+### Threat: Insecure Production Defaults & Environment Misconfiguration
+- **Mitigation 1 (Production Configuration Startup Validator)**: `app/config.py` runs a strict `model_validator` upon application initialization. If `ENVIRONMENT == "production"`:
+  - `SECRET_KEY` must be at least 32 characters and cannot match known defaults (such as `docker-compose-insecure-secret-key-32chars`, `insecure`, `changeme`, or `secret`).
+  - `SECURE_COOKIES` must be explicitly enabled (`True`).
+  - `DEMO_MODE` automatically defaults to `False`.
+  - Violations immediately abort server startup with a descriptive `ValueError`.
+- **Mitigation 2 (Timezone-Aware UTC Timestamp Invariants)**: The SQLite engine natively returns timestamps as naive `datetime` instances (`tzinfo=None`). To eliminate runtime `TypeError` when evaluating against `datetime.now(timezone.utc)`, `app/clock.py` provides `ensure_utc` which normalizes all stored expiration, lockout, and token timestamps to offset-aware UTC.
 
 ---
 
@@ -44,10 +52,16 @@ Brightloop is engineered with defense-in-depth principles across the entire appl
 - All monetary amounts, unit prices, discounts, and taxes are handled strictly using Python's `Decimal` type with `ROUND_HALF_UP` per line item, and stored as `Numeric(14, 2)` in PostgreSQL/SQLite.
 - Verified with property-based testing (`hypothesis`) over thousands of generated pricing values.
 
-### Threat: Double Invoicing & Race Conditions
+### Threat: Double Invoicing, Concurrent Billing & Race Conditions
 - **Database Unique Constraint**: `invoices` contains a hard compound unique constraint `UNIQUE(subscription_id, period_start)`. Even under concurrent billing process execution, the database guarantees that a subscription can never be billed twice for the same cycle.
 - **Row Locking**: During subscription transitions and billing generation, rows are locked (`SELECT ... FOR UPDATE` or `FOR UPDATE SKIP LOCKED` on PostgreSQL) to ensure serialized state changes.
 - **Optimistic Concurrency Control**: All mutable aggregates (`subscriptions`, `invoices`) maintain a `version` column. State transitions require matching `expected_version`, failing with `409 Conflict` if another operator made a concurrent edit.
+- **Idempotency Service & Payload Verification (`app/services/idempotency.py`)**:
+  - `POST /api/billing/run` and payment operations require the `Idempotency-Key` HTTP header.
+  - The request payload is canonicalized and hashed via SHA-256 (`compute_canonical_hash`).
+  - **In-Progress Guard**: An atomic in-progress marker (`__IN_PROGRESS__`) is held in `idempotency_keys` table. Sibling concurrent calls with the same key receive `409 Conflict` (`CONCURRENT_REQUEST_IN_PROGRESS`) rather than racing.
+  - **Payload Mismatch Rejection**: Replaying an existing key with altered parameters raises `409 Conflict` (`IDEMPOTENCY_PAYLOAD_MISMATCH`).
+  - **Failure Cleanup**: If the underlying transaction fails or raises an exception, the in-progress reservation is deleted so clients can retry cleanly.
 
 ### Threat: Payment Replay & Race Conditions
 - **Idempotency Keys**: `POST /api/payments` accepts a unique `Idempotency-Key` header. Duplicate attempts with the same key immediately return the cached receipt without double-crediting.

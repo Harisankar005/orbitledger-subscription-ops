@@ -55,3 +55,12 @@ class ClockService:
 
 # Global singleton clock instance
 clock = ClockService()
+
+
+def ensure_utc(dt: datetime | None) -> datetime | None:
+    """Ensure datetime is offset-aware UTC (handles dialect differences e.g. SQLite returning naive datetimes)."""
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)

@@ -288,15 +288,14 @@ def run_billing_engine(
     # Broadcast live SSE update if invoices were created
     if created_count > 0 and not dry_run:
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                asyncio.create_task(
-                    broadcaster.broadcast(
-                        "billing.completed",
-                        {"created": created_count, "as_of_date": target_date.isoformat()},
-                    )
+            loop = asyncio.get_running_loop()
+            loop.create_task(
+                broadcaster.broadcast(
+                    "billing.completed",
+                    {"created": created_count, "as_of_date": target_date.isoformat()},
                 )
-        except Exception:
+            )
+        except RuntimeError:
             pass
 
     return BillingRunResponse(

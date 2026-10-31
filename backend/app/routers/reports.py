@@ -16,6 +16,7 @@ from app.services import reports as reports_service
 router = APIRouter(prefix="/reports", tags=["reports"])
 
 
+@router.get("/dashboard", response_model=Dict[str, Any])
 @router.get("/summary", response_model=Dict[str, Any])
 def get_summary(
     date_from: Optional[date] = Query(None),

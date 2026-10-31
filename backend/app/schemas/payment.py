@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 
 class PaymentCreate(BaseModel):
+    invoice_id: Optional[int] = None
     method: Literal["cash", "card", "upi", "bank_transfer", "cheque"]
     amount: Decimal = Field(..., gt=0)
     paid_on: date

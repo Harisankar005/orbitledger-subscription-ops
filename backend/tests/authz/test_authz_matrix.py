@@ -32,7 +32,7 @@ def auth_tokens():
 
 
 def test_authz_matrix_staff_forbidden_from_admin_actions(auth_tokens):
-    """Staff cannot create staff users, write discount rules, or create plans."""
+    """Staff cannot create staff users, write discount rules, create plans, or view audit logs."""
     # 1. Staff attempting to create a staff user -> 403
     resp = client.post(
         "/api/users/staff",
@@ -56,9 +56,25 @@ def test_authz_matrix_staff_forbidden_from_admin_actions(auth_tokens):
     )
     assert resp.status_code == 403, f"Expected 403, got {resp.status_code}"
 
+    # 3. Staff attempting to access audit logs -> 403
+    resp = client.get("/api/audit-log", headers=auth_tokens["staff"])
+    assert resp.status_code == 403
+
+    # 4. Staff attempting to access outbox queue -> 403
+    resp = client.get("/api/outbox", headers=auth_tokens["staff"])
+    assert resp.status_code == 403
+
+    # 5. Staff attempting to create a catalog plan -> 403
+    resp = client.post(
+        "/api/catalog/plans",
+        headers=auth_tokens["staff"],
+        json={"name": "Illegal Plan", "price": "100.00", "billing_period": "monthly"},
+    )
+    assert resp.status_code == 403
+
 
 def test_authz_matrix_staff_allowed_business_operations(auth_tokens):
-    """Staff can view subscriptions, manage customers, view invoices, and record payments."""
+    """Staff can view subscriptions, manage customers, view invoices, and read reports."""
     # 1. Staff can read subscriptions -> 200
     resp = client.get("/api/subscriptions", headers=auth_tokens["staff"])
     assert resp.status_code == 200
@@ -86,8 +102,41 @@ def test_authz_matrix_customer_portal_and_ownership_scoping(auth_tokens):
     resp = client.get("/api/customers/9999", headers=auth_tokens["customer"])
     assert resp.status_code == 404
 
+    # 4. Customer attempting to record a payment -> 403
+    resp = client.post(
+        "/api/payments",
+        headers=auth_tokens["customer"],
+        json={"invoice_id": 1, "method": "card", "amount": 100.0, "paid_on": "2026-01-01"},
+    )
+    assert resp.status_code == 403
+
+    # 5. Customer attempting to access executive reports -> 403
+    resp = client.get("/api/reports/dashboard", headers=auth_tokens["customer"])
+    assert resp.status_code == 403
+
+    # 6. Customer attempting to access audit log -> 403
+    resp = client.get("/api/audit-log", headers=auth_tokens["customer"])
+    assert resp.status_code == 403
+
+    # 7. IDOR protection: Non-owned subscription in portal returns 404 (not 403)
+    resp = client.get("/api/portal/subscriptions/999999", headers=auth_tokens["customer"])
+    assert resp.status_code == 404
+
+    # 8. IDOR protection: Non-owned invoice in portal returns 404 (not 403)
+    resp = client.get("/api/portal/invoices/999999", headers=auth_tokens["customer"])
+    assert resp.status_code == 404
+
 
 def test_unauthenticated_requests_rejected(auth_tokens):
     """Anonymous requests to protected endpoints receive 401 Unauthorized."""
+    # 1. Protected staff route
     resp = client.get("/api/subscriptions", headers=auth_tokens["anonymous"])
+    assert resp.status_code == 401
+
+    # 2. Protected portal route
+    resp = client.get("/api/portal/subscriptions", headers=auth_tokens["anonymous"])
+    assert resp.status_code == 401
+
+    # 3. Protected admin route
+    resp = client.get("/api/audit-log", headers=auth_tokens["anonymous"])
     assert resp.status_code == 401

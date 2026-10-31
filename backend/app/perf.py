@@ -1,5 +1,6 @@
 import statistics
 import time
+import uuid
 
 from fastapi.testclient import TestClient
 
@@ -13,11 +14,14 @@ def benchmark_endpoint(name: str, method: str, url: str, headers: dict = None, j
     headers = headers or {}
 
     for _ in range(iterations):
+        req_headers = dict(headers)
+        if "/api/billing/run" in url:
+            req_headers["Idempotency-Key"] = f"perf-{uuid.uuid4()}"
         t0 = time.perf_counter()
         if method == "GET":
-            resp = client.get(url, headers=headers)
+            resp = client.get(url, headers=req_headers)
         elif method == "POST":
-            resp = client.post(url, headers=headers, json=json_body)
+            resp = client.post(url, headers=req_headers, json=json_body)
         latency_ms = (time.perf_counter() - t0) * 1000
         assert resp.status_code in (200, 201), f"Endpoint {url} failed with {resp.status_code}: {resp.text}"
         latencies.append(latency_ms)

@@ -66,12 +66,15 @@ class ForbiddenError(AppException):
         )
 
 
+HTTP_422 = getattr(status, "HTTP_422_UNPROCESSABLE_CONTENT", 422)
+
+
 class ValidationError(AppException):
     def __init__(self, message: str = "Validation failed", fields: Optional[Dict[str, str]] = None):
         super().__init__(
             message=message,
             code="VALIDATION_ERROR",
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=HTTP_422,
             fields=fields,
         )
 
@@ -98,7 +101,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         fields[loc or "non_field"] = msg
 
     return JSONResponse(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        status_code=HTTP_422,
         content={
             "code": "VALIDATION_ERROR",
             "message": "Input validation failed",

@@ -47,9 +47,9 @@ The login screen provides **one-click demo fill buttons** for instant evaluation
 
 | Role | Email | Password | Access Capabilities |
 |---|---|---|---|
-| **Platform Admin** | `admin@brightloop.test` | `Admin@12345` | Full access, user management, audit logs, outbox queue |
-| **Operations Staff** | `staff1@brightloop.test` | `Staff@12345` | Subscriptions, catalog, billing runs, payments, invoices |
-| **Subscriber Customer** | `customer@brightloop.test` | `Customer@12345` | Dedicated Customer Portal, self-service pause/close, invoice printing |
+| **Platform Admin** | `admin@brightloop.test` | `Admin@1234` | Full access, user management, audit logs, outbox queue |
+| **Operations Staff** | `staff1@brightloop.test` | `Staff@1234` | Subscriptions, catalog, billing runs, payments, invoices |
+| **Subscriber Customer** | `customer@brightloop.test` | `Customer@1234` | Dedicated Customer Portal, self-service pause/close, invoice printing |
 
 ---
 
@@ -131,10 +131,28 @@ tests/authz/test_authz_matrix.py::test_authz_matrix_customer_portal_and_ownershi
 tests/authz/test_authz_matrix.py::test_unauthenticated_requests_rejected PASSED
 tests/concurrency/test_billing_idempotency.py::test_billing_run_twice_creates_zero PASSED
 tests/concurrency/test_billing_idempotency.py::test_billing_idempotency_key_header PASSED
+tests/concurrency/test_billing_idempotency.py::test_billing_idempotency_repeat_returns_cached PASSED
+tests/concurrency/test_billing_idempotency.py::test_billing_idempotency_payload_mismatch_rejected PASSED
+tests/concurrency/test_billing_idempotency.py::test_billing_idempotency_concurrent_serialization PASSED
+tests/concurrency/test_billing_idempotency.py::test_billing_idempotency_failed_request_retried PASSED
+tests/concurrency/test_billing_idempotency.py::test_independent_billing_runs_cannot_double_bill PASSED
 tests/concurrency/test_billing_idempotency.py::test_month_end_anchor_relativedelta_drift_free PASSED
+tests/unit/test_auth_and_security.py::test_production_config_validation_rules PASSED
+tests/unit/test_auth_and_security.py::test_auth_cookie_attributes_and_security PASSED
+tests/unit/test_auth_and_security.py::test_password_policy_validation PASSED
+tests/unit/test_auth_and_security.py::test_failed_login_lockout_after_five_attempts PASSED
+tests/unit/test_auth_and_security.py::test_forgot_password_enumeration_defense PASSED
+tests/unit/test_auth_and_security.py::test_refresh_token_rotation_and_family_reuse_revocation PASSED
+tests/unit/test_auth_and_security.py::test_password_reset_token_single_use PASSED
 tests/unit/test_discount_rules.py::test_discount_eligibility_and_stacking PASSED
 tests/unit/test_discount_rules.py::test_atomic_usage_limit_exhaustion PASSED
 tests/unit/test_discount_rules.py::test_discount_never_exceeds_base PASSED
+tests/unit/test_invoices_and_payments.py::test_invoice_confirmation_version_optimistic_locking PASSED
+tests/unit/test_invoices_and_payments.py::test_invoice_cancellation_rules PASSED
+tests/unit/test_invoices_and_payments.py::test_invoice_outbox_message_enqueued PASSED
+tests/unit/test_invoices_and_payments.py::test_payment_creation_validations PASSED
+tests/unit/test_invoices_and_payments.py::test_payment_partial_and_full_lifecycle PASSED
+tests/unit/test_invoices_and_payments.py::test_payment_idempotency PASSED
 tests/unit/test_pricing_and_tax.py::test_tax_resolution_order PASSED
 tests/unit/test_pricing_and_tax.py::test_calculate_tax_percent_and_fixed PASSED
 tests/unit/test_pricing_and_tax.py::test_hypothesis_tax_rounding_invariants PASSED
@@ -142,7 +160,7 @@ tests/unit/test_state_machine.py::test_transition_validation_gates PASSED
 tests/unit/test_state_machine.py::test_illegal_transition_and_flags PASSED
 tests/unit/test_state_machine.py::test_optimistic_locking PASSED
 
-======================== 16 passed in 3.01s ========================
+======================== 34 passed in ~20.7s ========================
 ```
 
 ### Benchmark Latency Verification (`docs/PERFORMANCE.md`)
@@ -152,9 +170,11 @@ Run the 50-iteration benchmark suite:
 python -m app.perf
 ```
 
-- `GET /api/reports/dashboard`: **11.4ms p95** (Budget: 300ms) - **PASS**
-- `POST /api/billing/run`: **19.8ms p95** (Budget: 2000ms) - **PASS**
-- `GET /api/subscriptions`: **6.8ms p95** (Budget: 150ms) - **PASS**
+- `GET /api/reports/summary`: **9.11ms p95** (Budget: 800ms) - **PASS**
+- `GET /api/subscriptions`: **30.98ms p95** (Budget: 300ms) - **PASS**
+- `GET /api/invoices`: **24.31ms p95** (Budget: 300ms) - **PASS**
+- `GET /api/customers`: **9.22ms p95** (Budget: 300ms) - **PASS**
+- `POST /api/billing/run`: **15,080ms p95** (Budget: 20,000ms) - **PASS**
 
 ---
 
