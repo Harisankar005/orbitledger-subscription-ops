@@ -1,0 +1,82 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: brightloop-db
+    environment:
+      POSTGRES_USER: brightloop
+      POSTGRES_PASSWORD: brightloop
+      POSTGRES_DB: brightloop
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U brightloop -d brightloop"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: brightloop-mailpit
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: brightloop-api
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    environment:
+      DATABASE_URL: postgresql+psycopg://brightloop:brightloop@db:5432/brightloop
+      SECRET_KEY: docker-compose-insecure-secret-key-32chars
+      ENVIRONMENT: production
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      SMTP_FROM: billing@brightloop.test
+      EMBEDDED_WORKER: "false"
+      DEMO_MODE: "true"
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: brightloop-worker
+    command: python -m app.worker
+    environment:
+      DATABASE_URL: postgresql+psycopg://brightloop:brightloop@db:5432/brightloop
+      SECRET_KEY: docker-compose-insecure-secret-key-32chars
+      ENVIRONMENT: production
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      SMTP_FROM: billing@brightloop.test
+      DEMO_MODE: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: brightloop-web
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:

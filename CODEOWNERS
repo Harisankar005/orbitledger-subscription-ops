@@ -1,0 +1,11 @@
+# Team Brightloop Codeowners
+*                       @team-lead
+/backend/app/routers/auth.py        @lead-owner-a
+/backend/app/security.py            @lead-owner-a
+/backend/app/services/catalog.py     @dev-owner-b
+/backend/app/routers/catalog.py      @dev-owner-b
+/backend/app/services/billing.py     @dev-owner-c
+/backend/app/services/subscription.py @dev-owner-c
+/backend/app/services/invoice.py     @dev-owner-c
+/backend/app/services/payment.py     @dev-owner-c
+/frontend/                          @ui-owner-d
