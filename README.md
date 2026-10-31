@@ -198,5 +198,5 @@ Measured p95 response times:
 
 | Builder | Core Responsibilities | Modules Owned |
 |---|---|---|
-| **B. Harisankar** | System Architecture, Data Modeling, Recurring Billing Engine, Idempotency & Concurrency, RBAC & Security, Audit Trails | ackend/app/services/billing.py, ackend/app/services/idempotency.py, ackend/app/services/subscription.py, ackend/app/models/, ackend/app/security.py |
-| **Rohan S** | Frontend Application, Customer Portal, UI Components, Operations Shell, Recharts Analytics, Docker & Nginx Infra, Test Matrix | frontend/src/, frontend/Dockerfile, frontend/nginx.conf, docker-compose.yml, ackend/tests/, ackend/app/routers/ |
+| **B. Harisankar** | System Architecture, Data Modeling, Recurring Billing Engine, Idempotency & Concurrency, RBAC & Security, Audit Trails | backend/app/services/billing.py, backend/app/services/idempotency.py, backend/app/services/subscription.py, backend/app/models/, backend/app/security.py |
+| **Rohan S** | Frontend Application, Customer Portal, UI Components, Operations Shell, Recharts Analytics, Docker & Nginx Infra, Test Matrix | frontend/src/, frontend/Dockerfile, frontend/nginx.conf, docker-compose.yml, backend/tests/, backend/app/routers/ |
