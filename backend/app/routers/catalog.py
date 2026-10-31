@@ -28,6 +28,7 @@ from app.schemas.catalog import (
     ProductVariantResponse,
     QuotationTemplateCreate,
     QuotationTemplateResponse,
+    QuotationTemplateUpdate,
     TaxCreate,
     TaxResponse,
     TaxRuleCreate,
@@ -303,4 +304,17 @@ def create_quotation_template(
 ):
     req_id = getattr(request.state, "request_id", None)
     tpl = catalog_service.create_quotation_template(db, req, current_user.id, req_id)
+    return QuotationTemplateResponse.model_validate(tpl)
+
+
+@router.patch("/quotation-templates/{template_id}", response_model=QuotationTemplateResponse)
+def update_quotation_template(
+    template_id: int,
+    req: QuotationTemplateUpdate,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles("admin")),
+):
+    req_id = getattr(request.state, "request_id", None)
+    tpl = catalog_service.update_quotation_template(db, template_id, req, current_user.id, req_id)
     return QuotationTemplateResponse.model_validate(tpl)

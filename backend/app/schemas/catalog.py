@@ -184,6 +184,15 @@ class QuotationTemplateCreate(QuotationTemplateBase):
     lines: List[QuotationTemplateLineCreate] = []
 
 
+class QuotationTemplateUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=100)
+    plan_id: Optional[int] = None
+    validity_days: Optional[int] = Field(None, ge=1)
+    payment_term_id: Optional[int] = None
+    is_active: Optional[bool] = None
+    lines: Optional[List[QuotationTemplateLineCreate]] = None
+
+
 class QuotationTemplateResponse(QuotationTemplateBase):
     id: int
     plan: Optional[PlanResponse] = None

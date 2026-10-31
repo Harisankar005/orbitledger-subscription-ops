@@ -1,6 +1,6 @@
 # Brightloop subscription management platform
 
-[![CI Pipeline](https://github.com/Harisankar005/demo/actions/workflows/ci.yml/badge.svg)](https://github.com/Harisankar005/demo)
+[![CI Pipeline](https://github.com/Harisankar005/brightloop-subscription-management/actions/workflows/ci.yml/badge.svg)](https://github.com/Harisankar005/brightloop-subscription-management)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com/)
 [![React 18](https://img.shields.io/badge/React-18.3-61dafb.svg)](https://react.dev/)
@@ -11,7 +11,7 @@ Brightloop manages subscription lifecycles, recurring billing, and revenue recor
 
 > **Project Builders (Odoo Hackathon):**
 > - **B. Harisankar** ([@Harisankar005](https://github.com/Harisankar005)) — System Architecture, Billing Engine, Concurrency & Security, API Services, Database Migrations
-> - **Rohan S** — Frontend Architecture, Operations Console, Customer Portal, Recharts Analytics, Containerization & CI/CD
+> - **Rohan S** ([@rohan1537](https://github.com/rohan1537)) — Frontend Architecture, Operations Console, Customer Portal, Recharts Analytics, Containerization & CI/CD
 
 ---
 
@@ -21,7 +21,7 @@ Run Brightloop locally without cloud services:
 
 ```bash
 # 1. Clone and enter repository
-git clone https://github.com/Harisankar005/demo.git && cd brightloop
+git clone https://github.com/Harisankar005/brightloop-subscription-management.git && cd brightloop
 
 # 2. Set up backend environment and install packages
 cd backend

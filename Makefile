@@ -29,6 +29,7 @@ seed-small:
 
 test:
 	cd backend && pytest -v --cov=app
+	python scripts/verify_api_routes.py
 
 perf:
 	cd backend && python -m app.perf

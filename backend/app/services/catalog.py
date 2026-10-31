@@ -21,6 +21,7 @@ from app.schemas.catalog import (
     ProductUpdate,
     ProductVariantCreate,
     QuotationTemplateCreate,
+    QuotationTemplateUpdate,
     TaxCreate,
     TaxRuleCreate,
     TaxRuleUpdate,
@@ -205,6 +206,78 @@ def create_quotation_template(db: Session, req: QuotationTemplateCreate, actor_i
 
     db.flush()
     log_audit(db, actor_id, "quotation_template.created", "quotation_template", template.id, after={"name": template.name}, request_id=request_id)
+    db.commit()
+    db.refresh(template)
+    return template
+
+
+def update_quotation_template(
+    db: Session,
+    template_id: int,
+    req: QuotationTemplateUpdate,
+    actor_id: int,
+    request_id: Optional[str] = None,
+) -> QuotationTemplate:
+    template = db.query(QuotationTemplate).filter(QuotationTemplate.id == template_id).first()
+    if not template:
+        raise NotFoundError("Quotation template not found")
+
+    before = {"name": template.name, "is_active": template.is_active}
+
+    if req.name is not None:
+        clean_name = req.name.strip()
+        existing = (
+            db.query(QuotationTemplate)
+            .filter(QuotationTemplate.name == clean_name, QuotationTemplate.id != template_id)
+            .first()
+        )
+        if existing:
+            raise ConflictError("Quotation template with this name already exists")
+        template.name = clean_name
+
+    if req.plan_id is not None:
+        plan = db.query(Plan).filter(Plan.id == req.plan_id).first()
+        if not plan:
+            raise NotFoundError("Plan not found")
+        template.plan_id = req.plan_id
+
+    if req.validity_days is not None:
+        template.validity_days = req.validity_days
+
+    if req.payment_term_id is not None:
+        term = db.query(PaymentTerm).filter(PaymentTerm.id == req.payment_term_id).first()
+        if not term:
+            raise NotFoundError("Payment term not found")
+        template.payment_term_id = req.payment_term_id
+
+    if req.is_active is not None:
+        template.is_active = req.is_active
+
+    if req.lines is not None:
+        for old_line in list(template.lines):
+            db.delete(old_line)
+        db.flush()
+        template.lines = []
+        for line_req in req.lines:
+            line = QuotationTemplateLine(
+                template_id=template.id,
+                product_id=line_req.product_id,
+                variant_id=line_req.variant_id,
+                quantity=line_req.quantity,
+            )
+            db.add(line)
+
+    db.flush()
+    log_audit(
+        db,
+        actor_id,
+        "quotation_template.updated",
+        "quotation_template",
+        template.id,
+        before=before,
+        after={"name": template.name, "is_active": template.is_active},
+        request_id=request_id,
+    )
     db.commit()
     db.refresh(template)
     return template

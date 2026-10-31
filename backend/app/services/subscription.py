@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.clock import clock
 from app.errors import ConflictError, IllegalTransitionError, NotFoundError, ValidationError
-from app.models.catalog import Plan, Product, ProductVariant, QuotationTemplate
+from app.models.catalog import PaymentTerm, Plan, Product, ProductVariant, QuotationTemplate
 from app.models.identity import Customer
 from app.models.subscription import (
     Subscription,
@@ -16,6 +16,7 @@ from app.models.subscription import (
 from app.schemas.subscription import (
     SubscriptionCreate,
     SubscriptionLineCreate,
+    SubscriptionUpdate,
 )
 from app.services.audit import log_audit
 from app.services.numbering import generate_next_number
@@ -89,6 +90,91 @@ def create_subscription(
         entity_type="subscription",
         entity_id=sub.id,
         after={"number": sub.number, "status": sub.status, "customer_id": sub.customer_id},
+        request_id=request_id,
+    )
+
+    db.commit()
+    db.refresh(sub)
+    return sub
+
+
+def update_subscription(
+    db: Session,
+    subscription_id: int,
+    req: SubscriptionUpdate,
+    actor_id: Optional[int] = None,
+    request_id: Optional[str] = None,
+) -> Subscription:
+    """Update a subscription in draft status only."""
+    sub = db.query(Subscription).filter(Subscription.id == subscription_id).first()
+    if not sub:
+        raise NotFoundError("Subscription not found")
+
+    if sub.status != "draft":
+        raise ConflictError(
+            f"Cannot edit subscription in '{sub.status}' status. Only draft subscriptions can be modified.",
+            code="SUBSCRIPTION_NOT_DRAFT",
+        )
+
+    before_state = {
+        "plan_id": sub.plan_id,
+        "start_date": sub.start_date.isoformat(),
+        "expiry_date": sub.expiry_date.isoformat(),
+        "payment_term_id": sub.payment_term_id,
+        "line_count": len(sub.lines),
+    }
+
+    if req.plan_id is not None:
+        plan = db.query(Plan).filter(Plan.id == req.plan_id).first()
+        if not plan:
+            raise NotFoundError("Plan not found")
+        sub.plan_id = req.plan_id
+
+    new_start = req.start_date or sub.start_date
+    new_expiry = req.expiry_date or sub.expiry_date
+    if new_start > new_expiry:
+        raise ValidationError(
+            "start_date cannot be after expiry_date",
+            fields={"start_date": "Must precede expiry_date"},
+        )
+    sub.start_date = new_start
+    sub.expiry_date = new_expiry
+    sub.billing_anchor = new_start
+    sub.next_invoice_date = new_start
+
+    if req.payment_term_id is not None:
+        term = db.query(PaymentTerm).filter(PaymentTerm.id == req.payment_term_id).first()
+        if not term:
+            raise NotFoundError("Payment term not found")
+        sub.payment_term_id = req.payment_term_id
+
+    if req.notes is not None:
+        sub.notes = req.notes
+
+    if req.lines is not None:
+        for old_line in list(sub.lines):
+            db.delete(old_line)
+        db.flush()
+        sub.lines = []
+        for line_req in req.lines:
+            add_subscription_line(db, sub, line_req)
+
+    sub.version += 1
+
+    log_audit(
+        db=db,
+        actor_id=actor_id,
+        action="subscription.updated",
+        entity_type="subscription",
+        entity_id=sub.id,
+        before=before_state,
+        after={
+            "plan_id": sub.plan_id,
+            "start_date": sub.start_date.isoformat(),
+            "expiry_date": sub.expiry_date.isoformat(),
+            "payment_term_id": sub.payment_term_id,
+            "line_count": len(sub.lines),
+        },
         request_id=request_id,
     )
 

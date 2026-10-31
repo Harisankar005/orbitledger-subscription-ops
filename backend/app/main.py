@@ -52,7 +52,7 @@ app = FastAPI(
     openapi_url="/api/openapi.json",
     contact={
         "name": "B. Harisankar and Rohan S",
-        "url": "https://github.com/Harisankar005/demo",
+        "url": "https://github.com/Harisankar005/brightloop-subscription-management",
     },
     lifespan=lifespan,
 )
@@ -92,7 +92,6 @@ app.include_router(auth_router, prefix="/api")
 app.include_router(users_router, prefix="/api")
 app.include_router(customers_router, prefix="/api")
 app.include_router(catalog_router, prefix="/api")
-app.include_router(catalog_router, prefix="/api/catalog")
 app.include_router(subscriptions_router, prefix="/api")
 app.include_router(discounts_router, prefix="/api")
 app.include_router(billing_router, prefix="/api")

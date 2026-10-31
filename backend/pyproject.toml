@@ -9,7 +9,7 @@ description = "Brightloop Subscription Management System API"
 requires-python = ">=3.12"
 authors = [
     { name = "B. Harisankar", email = "nandubhari2@gmail.com" },
-    { name = "Rohan S", email = "rohan@brightloop.test" },
+    { name = "Rohan S", email = "rohansnair5@gmail.com" },
 ]
 dependencies = [
     "fastapi>=0.110.0",

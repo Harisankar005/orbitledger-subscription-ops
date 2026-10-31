@@ -45,7 +45,7 @@ export function Discounts() {
 
   const { data: productsData } = useQuery({
     queryKey: ["catalog-products"],
-    queryFn: () => api.get<{ items: any[] }>("/catalog/products"),
+    queryFn: () => api.get<{ items: any[] }>("/products"),
   });
 
   const { data, isLoading } = useQuery({

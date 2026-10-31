@@ -11,6 +11,7 @@ from app.models.billing import DiscountRule
 from app.models.identity import User
 from app.schemas.discount import DiscountRuleCreate, DiscountRuleResponse, DiscountRuleUpdate
 from app.services import discount as discount_service
+from app.services.audit import log_audit
 
 router = APIRouter(prefix="/discounts", tags=["discounts"])
 
@@ -86,6 +87,40 @@ def update_discount(
 ):
     req_id = getattr(request.state, "request_id", None)
     rule = discount_service.update_discount_rule(db, rule_id, req, current_user.id, req_id)
+    resp = DiscountRuleResponse.model_validate(rule)
+    resp.status_label = discount_service.derive_discount_status(rule, clock.today())
+    return resp
+
+
+@router.post("/{rule_id}/toggle", response_model=DiscountRuleResponse)
+def toggle_discount(
+    rule_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles("admin")),
+):
+    """Admin-only: Toggle discount rule active status."""
+    req_id = getattr(request.state, "request_id", None)
+    rule = db.query(DiscountRule).filter(DiscountRule.id == rule_id).first()
+    if not rule:
+        raise NotFoundError("Discount rule not found")
+
+    before_active = rule.is_active
+    rule.is_active = not rule.is_active
+    db.commit()
+    db.refresh(rule)
+
+    log_audit(
+        db=db,
+        actor_id=current_user.id,
+        action="discount.toggled",
+        entity_type="discount_rule",
+        entity_id=rule.id,
+        before={"is_active": before_active},
+        after={"is_active": rule.is_active},
+        request_id=req_id,
+    )
+
     resp = DiscountRuleResponse.model_validate(rule)
     resp.status_label = discount_service.derive_discount_status(rule, clock.today())
     return resp

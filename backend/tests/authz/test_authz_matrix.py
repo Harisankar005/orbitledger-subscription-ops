@@ -66,7 +66,7 @@ def test_authz_matrix_staff_forbidden_from_admin_actions(auth_tokens):
 
     # 5. Staff attempting to create a catalog plan -> 403
     resp = client.post(
-        "/api/catalog/plans",
+        "/api/plans",
         headers=auth_tokens["staff"],
         json={"name": "Illegal Plan", "price": "100.00", "billing_period": "monthly"},
     )

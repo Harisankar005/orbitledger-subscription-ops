@@ -1,6 +1,6 @@
 # Five-minute demo script
 
-**Project Builders (Odoo Hackathon):** B. Harisankar ([@Harisankar005](https://github.com/Harisankar005)) & Rohan S
+**Project Builders (Odoo Hackathon):** B. Harisankar ([@Harisankar005](https://github.com/Harisankar005)) & Rohan S ([@rohan1537](https://github.com/rohan1537))
 
 This script guides a five-minute demonstration of Brightloop.
 

@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
+from fastapi.encoders import jsonable_encoder
 from sqlalchemy.orm import Session
 
 from app.models.platform import AuditLog
@@ -22,8 +23,8 @@ def log_audit(
         action=action,
         entity_type=entity_type,
         entity_id=entity_id,
-        before_state=before,
-        after_state=after,
+        before_state=jsonable_encoder(before) if before is not None else None,
+        after_state=jsonable_encoder(after) if after is not None else None,
         request_id=request_id,
         at=datetime.now(timezone.utc),
     )

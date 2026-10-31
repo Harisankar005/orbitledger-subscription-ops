@@ -73,8 +73,12 @@ class SubscriptionFromTemplateRequest(BaseModel):
 
 
 class SubscriptionUpdate(BaseModel):
+    plan_id: Optional[int] = None
+    start_date: Optional[date] = None
+    expiry_date: Optional[date] = None
     payment_term_id: Optional[int] = None
     notes: Optional[str] = None
+    lines: Optional[List[SubscriptionLineCreate]] = None
 
 
 class SubscriptionTransitionRequest(BaseModel):

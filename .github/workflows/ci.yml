@@ -52,6 +52,10 @@ jobs:
           cd backend
           pytest -v --cov=app tests/
 
+      - name: Verify frontend API routes against OpenAPI schema
+        run: |
+          python scripts/verify_api_routes.py
+
   frontend:
     runs-on: ubuntu-latest
     steps:

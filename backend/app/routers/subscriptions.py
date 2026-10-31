@@ -13,6 +13,7 @@ from app.schemas.subscription import (
     SubscriptionFromTemplateRequest,
     SubscriptionResponse,
     SubscriptionTransitionRequest,
+    SubscriptionUpdate,
 )
 from app.services import subscription as sub_service
 
@@ -74,6 +75,20 @@ def create_subscription(
 ):
     req_id = getattr(request.state, "request_id", None)
     sub = sub_service.create_subscription(db, req, current_user.id, req_id)
+    return SubscriptionResponse.model_validate(sub)
+
+
+@router.patch("/{sub_id}", response_model=SubscriptionResponse)
+def update_subscription(
+    sub_id: int,
+    req: SubscriptionUpdate,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles("admin", "staff")),
+):
+    """Update a subscription in draft status only (admin and staff)."""
+    req_id = getattr(request.state, "request_id", None)
+    sub = sub_service.update_subscription(db, sub_id, req, current_user.id, req_id)
     return SubscriptionResponse.model_validate(sub)
 
 

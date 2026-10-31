@@ -1,5 +1,5 @@
 # Team Brightloop Codeowners
-# Project Builders: B. Harisankar (@Harisankar005) & Rohan S (@RohanS)
+# Project Builders: B. Harisankar (@Harisankar005) & Rohan S (@rohan1537)
 
 *                                       @Harisankar005
 /backend/app/services/billing.py        @Harisankar005
@@ -8,8 +8,8 @@
 /backend/app/models/                    @Harisankar005
 /backend/app/security.py                @Harisankar005
 /backend/alembic/                       @Harisankar005
-/backend/app/routers/                   @Harisankar005 @RohanS
-/backend/tests/                         @Harisankar005 @RohanS
-/frontend/                              @RohanS
-/docker-compose.yml                     @Harisankar005 @RohanS
-/docs/                                  @Harisankar005 @RohanS
+/backend/app/routers/                   @Harisankar005 @rohan1537
+/backend/tests/                         @Harisankar005 @rohan1537
+/frontend/                              @rohan1537
+/docker-compose.yml                     @Harisankar005 @rohan1537
+/docs/                                  @Harisankar005 @rohan1537

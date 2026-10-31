@@ -10,10 +10,11 @@ from app.clock import clock
 from app.config import settings
 from app.db import get_db
 from app.deps import require_roles
-from app.errors import ForbiddenError
+from app.errors import ForbiddenError, NotFoundError
 from app.events import broadcaster
 from app.models.identity import User
 from app.models.platform import AuditLog, OutboxMessage
+from app.services.audit import log_audit
 from app.services.billing import run_billing_engine
 
 router = APIRouter(tags=["platform"])
@@ -116,6 +117,49 @@ def list_outbox_messages(
         "total": total,
         "page": page,
         "page_size": page_size,
+    }
+
+
+@router.post("/outbox/{id}/retry", response_model=Dict[str, Any])
+def retry_outbox_message(
+    id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles("admin")),
+):
+    """Admin-only: Reset outbox message status to pending so it can be retried."""
+    req_id = getattr(request.state, "request_id", None)
+    msg = db.query(OutboxMessage).filter(OutboxMessage.id == id).first()
+    if not msg:
+        raise NotFoundError("Outbox message not found")
+
+    before_status = msg.status
+    msg.status = "pending"
+    msg.last_error = None
+    db.commit()
+    db.refresh(msg)
+
+    log_audit(
+        db=db,
+        actor_id=current_user.id,
+        action="outbox.retried",
+        entity_type="outbox_message",
+        entity_id=msg.id,
+        before={"status": before_status},
+        after={"status": msg.status},
+        request_id=req_id,
+    )
+
+    return {
+        "id": msg.id,
+        "to_email": msg.to_email,
+        "subject": msg.subject,
+        "kind": msg.kind,
+        "status": msg.status,
+        "attempts": msg.attempts,
+        "last_error": msg.last_error,
+        "created_at": msg.created_at,
+        "sent_at": msg.sent_at,
     }
 
 
