@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Literal, Optional
 
-from pydantic import model_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEV_SECRET_KEY = "brightloop-dev-secret-key-only-for-local-development-32chars"
@@ -38,6 +38,13 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
     )
+
+    @field_validator("SECURE_COOKIES", mode="before")
+    @classmethod
+    def parse_secure_cookies(cls, v):
+        if v == "" or v is None:
+            return None
+        return v
 
     @property
     def is_cookie_secure(self) -> bool:

@@ -13,6 +13,7 @@ from app.errors import ConflictError, ValidationError
 from app.models.platform import IdempotencyKey
 
 IN_PROGRESS_MARKER = "__IN_PROGRESS__"
+CACHE_UNAVAILABLE_MARKER = "__CACHE_UNAVAILABLE__"
 DEFAULT_STALE_TIMEOUT_SECONDS = 60.0
 
 
@@ -94,9 +95,21 @@ def execute_with_idempotency(
                     )
 
                 # 3. If completed, return cached response
-                if existing.status == "completed" and existing.response_json != IN_PROGRESS_MARKER:
-                    cached_data = json.loads(existing.response_json)
-                    return cached_data, True
+                if existing.status == "completed":
+                    if existing.response_json and existing.response_json not in (IN_PROGRESS_MARKER, CACHE_UNAVAILABLE_MARKER):
+                        try:
+                            cached_data = json.loads(existing.response_json)
+                            return cached_data, True
+                        except Exception:
+                            pass
+                    # If response_json is None, CACHE_UNAVAILABLE_MARKER, corrupted, or unavailable:
+                    # Side effects already ran, so we must NEVER re-execute them,
+                    # and we must NEVER fabricate a fake generic completed response.
+                    raise ConflictError(
+                        "The operation was already completed successfully, but the cached response payload is unavailable. Business side effects will not be duplicated.",
+                        code="IDEMPOTENCY_RESPONSE_UNAVAILABLE",
+                        fields={"Idempotency-Key": "Operation already completed; cached response unavailable"},
+                    )
 
                 # 4. In-progress check: check for stale abandoned execution (crash recovery strategy)
                 updated_utc = ensure_utc(existing.updated_at) or ensure_utc(existing.created_at) or datetime.now(timezone.utc)
@@ -187,40 +200,57 @@ def execute_with_idempotency(
         raise exc
 
     # Operation succeeded! Persist success response and mark as completed.
+    payload_str: Optional[str] = None
     try:
         if hasattr(result, "model_dump"):
             serialized = result.model_dump()
         elif isinstance(result, dict):
             serialized = result
+        elif isinstance(result, (list, tuple)):
+            serialized = [item.model_dump() if hasattr(item, "model_dump") else item for item in result]
+        elif result is None:
+            serialized = None
         else:
             serialized = {"result": result}
         payload_str = json.dumps(serialized, default=str)
     except Exception:
-        payload_str = json.dumps({"status": "completed"})
+        # Never fabricate a generic fake response payload
+        payload_str = CACHE_UNAVAILABLE_MARKER
 
-    try:
-        with SessionLocal() as db:
-            entry = (
-                db.query(IdempotencyKey)
-                .filter(IdempotencyKey.scope == clean_scope, IdempotencyKey.key == clean_key)
-                .first()
-            )
-            if entry:
-                entry.response_json = payload_str
-                entry.status = "completed"
-                entry.updated_at = datetime.now(timezone.utc)
-                db.commit()
-    except Exception:
-        # If persisting the response cache fails (e.g. transient DB issue),
-        # the business side effects have ALREADY completed successfully!
-        # Attempt a fallback update so status is 'completed' to prevent duplicate execution on retry.
+    if payload_str is None:
+        payload_str = CACHE_UNAVAILABLE_MARKER
+
+    persisted = False
+    for _ in range(3):
+        try:
+            with SessionLocal() as db:
+                entry = (
+                    db.query(IdempotencyKey)
+                    .filter(IdempotencyKey.scope == clean_scope, IdempotencyKey.key == clean_key)
+                    .first()
+                )
+                if entry:
+                    entry.response_json = payload_str
+                    entry.status = "completed"
+                    entry.updated_at = datetime.now(timezone.utc)
+                    db.commit()
+                    persisted = True
+                    break
+        except Exception:
+            time.sleep(0.05)
+
+    if not persisted:
+        # If persisting the response payload failed, the operation side effects have
+        # ALREADY completed successfully! Mark as completed with response_json=CACHE_UNAVAILABLE_MARKER so
+        # stale lease claims cannot re-execute operation_fn() and duplicate billing or payments,
+        # while never fabricating a fake completed response payload.
         try:
             with SessionLocal() as fallback_db:
                 fallback_db.query(IdempotencyKey).filter(
                     IdempotencyKey.scope == clean_scope,
                     IdempotencyKey.key == clean_key,
                 ).update({
-                    "response_json": json.dumps({"status": "completed"}),
+                    "response_json": CACHE_UNAVAILABLE_MARKER,
                     "status": "completed",
                     "updated_at": datetime.now(timezone.utc),
                 })

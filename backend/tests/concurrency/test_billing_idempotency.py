@@ -605,3 +605,55 @@ def test_interrupted_operation_simulation_and_stale_recovery():
     assert was_cached is False
     assert result["paid"] is True
     assert result["recovered"] is True
+
+
+def test_cache_persistence_failure_never_fabricates_response_and_prevents_duplicate_side_effects():
+    """Verify that if response caching fails, no fabricated response is returned and retries do not duplicate side effects."""
+    key = f"key-cache-fail-{uuid.uuid4()}"
+    endpoint = "/api/billing/run"
+    scope = "billing.run"
+    payload = {"dry_run": False}
+    side_effects_run = 0
+
+    def billing_operation():
+        nonlocal side_effects_run
+        side_effects_run += 1
+        return {"created": 5, "duration_ms": 12}
+
+    # Execute successfully
+    res, was_cached = execute_with_idempotency(
+        key=key,
+        endpoint=endpoint,
+        payload=payload,
+        operation_fn=billing_operation,
+        scope=scope,
+    )
+    assert was_cached is False
+    assert res == {"created": 5, "duration_ms": 12}
+    assert side_effects_run == 1
+
+    # Simulate corrupted / failed response cache persistence on the record in DB
+    with TestSessionLocal() as db:
+        rec = db.query(IdempotencyKey).filter(IdempotencyKey.scope == scope, IdempotencyKey.key == key).first()
+        assert rec is not None
+        assert rec.status == "completed"
+        # Set response_json to CACHE_UNAVAILABLE_MARKER (simulating response cache write failure)
+        rec.response_json = idempotency_service.CACHE_UNAVAILABLE_MARKER
+        db.commit()
+
+    # Retry 1: Client retries with the exact same key and payload
+    with pytest.raises(ConflictError) as exc_info:
+        execute_with_idempotency(
+            key=key,
+            endpoint=endpoint,
+            payload=payload,
+            operation_fn=billing_operation,
+            scope=scope,
+            stale_timeout_seconds=0.01,  # Even if stale timeout is tiny, completed record cannot be reclaimed!
+        )
+
+    # 1. Error is IDEMPOTENCY_RESPONSE_UNAVAILABLE (NOT a fabricated response)
+    assert exc_info.value.code == "IDEMPOTENCY_RESPONSE_UNAVAILABLE"
+    # 2. Side effects are NEVER duplicated on retry!
+    assert side_effects_run == 1, "Billing or payment side effects must NOT be duplicated on retry!"
+
