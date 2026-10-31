@@ -1,5 +1,6 @@
 import concurrent.futures
 import os
+import time
 import uuid
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
@@ -484,3 +485,123 @@ def test_billing_run_twice_creates_zero():
     assert run1.created >= 1
     run2 = run_billing_engine(as_of_date=target_date, dry_run=False)
     assert run2.created == 0, f"Second billing run created {run2.created} duplicate invoices!"
+
+
+def test_multiple_workers_competing_for_stale_record_atomic_lease():
+    """Verify that when multiple concurrent workers attempt to recover the same stale record, exactly one wins the lease."""
+    stale_key = f"stale-compete-{uuid.uuid4()}"
+    scope = "billing.run"
+    endpoint = "/api/billing/run"
+    payload = {"as_of_date": "2026-09-01", "dry_run": True}
+    req_hash = compute_canonical_hash(payload)
+
+    # Seed an abandoned in-progress record from 120s ago
+    with TestSessionLocal() as db:
+        old_time = datetime.now(timezone.utc) - timedelta(seconds=120)
+        stale_record = IdempotencyKey(
+            scope=scope,
+            key=stale_key,
+            endpoint=endpoint,
+            request_hash=req_hash,
+            response_json=IN_PROGRESS_MARKER,
+            status="in_progress",
+            created_at=old_time,
+            updated_at=old_time,
+        )
+        db.add(stale_record)
+        db.commit()
+
+    execution_count = 0
+    import threading
+    lock = threading.Lock()
+
+    def do_work():
+        nonlocal execution_count
+        with lock:
+            execution_count += 1
+        time.sleep(0.05)
+        return {"winner": True, "count": execution_count}
+
+    def worker_task():
+        res, was_cached = execute_with_idempotency(
+            key=stale_key,
+            endpoint=endpoint,
+            payload=payload,
+            operation_fn=do_work,
+            scope=scope,
+            max_wait_seconds=5.0,
+            stale_timeout_seconds=5.0,
+        )
+        return res, was_cached
+
+    # Launch 5 concurrent workers simultaneously
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+        futures = [executor.submit(worker_task) for _ in range(5)]
+        results = [f.result() for f in futures]
+
+    # Exactly ONE worker executed do_work()!
+    assert execution_count == 1, f"Expected exactly 1 execution among competing workers, got {execution_count}"
+
+    # All workers received valid results
+    cached_flags = [was_cached for _, was_cached in results]
+    assert False in cached_flags, "The winning worker must have was_cached=False"
+    assert True in cached_flags, "Losing workers must have received was_cached=True"
+
+    # Database record is completed
+    with TestSessionLocal() as db:
+        record = db.query(IdempotencyKey).filter(IdempotencyKey.scope == scope, IdempotencyKey.key == stale_key).first()
+        assert record is not None
+        assert record.status == "completed"
+        assert record.response_json != IN_PROGRESS_MARKER
+
+
+def test_interrupted_operation_simulation_and_stale_recovery():
+    """Verify that an interrupted worker (e.g. process termination) leaving an in-progress record recovers safely."""
+    key = f"interrupted-{uuid.uuid4()}"
+    scope = "payments.record"
+    endpoint = "/api/payments"
+    payload = {"invoice_id": 1, "amount": "500.00"}
+    req_hash = compute_canonical_hash(payload)
+
+    # Simulate a worker claiming in-progress reservation and abruptly crashing 10 seconds ago
+    crash_time = datetime.now(timezone.utc) - timedelta(seconds=10)
+    with TestSessionLocal() as db:
+        abandoned = IdempotencyKey(
+            scope=scope,
+            key=key,
+            endpoint=endpoint,
+            request_hash=req_hash,
+            response_json=IN_PROGRESS_MARKER,
+            status="in_progress",
+            created_at=crash_time,
+            updated_at=crash_time,
+        )
+        db.add(abandoned)
+        db.commit()
+
+    # Retry with stale_timeout=30s and max_wait=0.05s: rejected as active in progress
+    with pytest.raises(ConflictError) as exc:
+        execute_with_idempotency(
+            key=key,
+            endpoint=endpoint,
+            payload=payload,
+            operation_fn=lambda: {"paid": True},
+            scope=scope,
+            max_wait_seconds=0.05,
+            stale_timeout_seconds=30.0,
+        )
+    assert exc.value.code == "IDEMPOTENCY_IN_PROGRESS"
+
+    # Now retry with stale_timeout=5.0s (crash was 10s ago, so it is stale!): recovers and executes!
+    result, was_cached = execute_with_idempotency(
+        key=key,
+        endpoint=endpoint,
+        payload=payload,
+        operation_fn=lambda: {"paid": True, "recovered": True},
+        scope=scope,
+        max_wait_seconds=1.0,
+        stale_timeout_seconds=5.0,
+    )
+    assert was_cached is False
+    assert result["paid"] is True
+    assert result["recovered"] is True

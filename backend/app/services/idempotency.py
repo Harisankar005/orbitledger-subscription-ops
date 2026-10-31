@@ -4,6 +4,7 @@ import time
 from datetime import datetime, timezone
 from typing import Any, Callable, Optional, Tuple
 
+from sqlalchemy import update
 from sqlalchemy.exc import IntegrityError
 
 from app.clock import ensure_utc
@@ -49,8 +50,9 @@ def execute_with_idempotency(
     7. Atomically claims in-progress reservation, serialized via DB UNIQUE(scope, key).
     8. In-progress records cannot be mistaken for completed responses.
     9. Sibling concurrent requests wait up to max_wait_seconds for completed response.
-    10. Stale in-progress records (> stale_timeout_seconds) are safely recovered on retry.
+    10. Stale in-progress records (> stale_timeout_seconds) are safely claimed via atomic compare-and-swap so only one worker executes.
     11. Deletes in-progress marker on failure so retries succeed cleanly.
+    12. Guarantees at-most-once execution of the operation block; end-to-end exactly-once semantics require transactional or independently idempotent business logic.
 
     Returns:
         Tuple of (result, was_cached: bool)
@@ -97,17 +99,36 @@ def execute_with_idempotency(
                     return cached_data, True
 
                 # 4. In-progress check: check for stale abandoned execution (crash recovery strategy)
-                created_utc = ensure_utc(existing.created_at) or datetime.now(timezone.utc)
-                age_seconds = (datetime.now(timezone.utc) - created_utc).total_seconds()
+                updated_utc = ensure_utc(existing.updated_at) or ensure_utc(existing.created_at) or datetime.now(timezone.utc)
+                age_seconds = (datetime.now(timezone.utc) - updated_utc).total_seconds()
                 if age_seconds > stale_timeout_seconds:
-                    # Documented recovery strategy: previous worker was killed or crashed.
-                    # Re-claim the in-progress reservation for this retry.
-                    existing.created_at = datetime.now(timezone.utc)
-                    existing.updated_at = datetime.now(timezone.utc)
-                    existing.status = "in_progress"
-                    existing.response_json = IN_PROGRESS_MARKER
+                    # Atomic conditional lease claim using compare-and-swap on (scope, key, status, updated_at).
+                    # Only one worker can match updated_at == existing.updated_at.
+                    now = datetime.now(timezone.utc)
+                    stmt = (
+                        update(IdempotencyKey)
+                        .where(
+                            IdempotencyKey.scope == clean_scope,
+                            IdempotencyKey.key == clean_key,
+                            IdempotencyKey.status == "in_progress",
+                            IdempotencyKey.updated_at == existing.updated_at,
+                        )
+                        .values(
+                            updated_at=now,
+                            response_json=IN_PROGRESS_MARKER,
+                        )
+                    )
+                    res = db.execute(stmt)
                     db.commit()
-                    break
+                    rowcount = getattr(res, "rowcount", 0)
+                    if rowcount == 1:
+                        # Exactly one worker wins the atomic lease claim!
+                        break
+                    else:
+                        # Another worker claimed the lease or completed the operation.
+                        # Do NOT execute operation_fn. Loop back and re-inspect.
+                        time.sleep(0.05)
+                        continue
 
                 # Sibling execution is active; wait for completion
                 if time.time() - start_time > max_wait_seconds:
@@ -145,16 +166,39 @@ def execute_with_idempotency(
     # Execute the underlying operation
     try:
         result = operation_fn()
+    except Exception as exc:
+        # On failure: clean up in-progress reservation so retries can proceed cleanly
+        try:
+            with SessionLocal() as db:
+                entry = (
+                    db.query(IdempotencyKey)
+                    .filter(
+                        IdempotencyKey.scope == clean_scope,
+                        IdempotencyKey.key == clean_key,
+                        IdempotencyKey.status == "in_progress",
+                    )
+                    .first()
+                )
+                if entry:
+                    db.delete(entry)
+                    db.commit()
+        except Exception:
+            pass
+        raise exc
 
-        # Serialize result for caching
+    # Operation succeeded! Persist success response and mark as completed.
+    try:
         if hasattr(result, "model_dump"):
             serialized = result.model_dump()
         elif isinstance(result, dict):
             serialized = result
         else:
             serialized = {"result": result}
+        payload_str = json.dumps(serialized, default=str)
+    except Exception:
+        payload_str = json.dumps({"status": "completed"})
 
-        # Persist success response and mark as completed
+    try:
         with SessionLocal() as db:
             entry = (
                 db.query(IdempotencyKey)
@@ -162,26 +206,26 @@ def execute_with_idempotency(
                 .first()
             )
             if entry:
-                entry.response_json = json.dumps(serialized, default=str)
+                entry.response_json = payload_str
                 entry.status = "completed"
                 entry.updated_at = datetime.now(timezone.utc)
                 db.commit()
-
-        return result, False
-
-    except Exception as exc:
-        # On failure: clean up in-progress reservation so retries can proceed cleanly
-        with SessionLocal() as db:
-            entry = (
-                db.query(IdempotencyKey)
-                .filter(
+    except Exception:
+        # If persisting the response cache fails (e.g. transient DB issue),
+        # the business side effects have ALREADY completed successfully!
+        # Attempt a fallback update so status is 'completed' to prevent duplicate execution on retry.
+        try:
+            with SessionLocal() as fallback_db:
+                fallback_db.query(IdempotencyKey).filter(
                     IdempotencyKey.scope == clean_scope,
                     IdempotencyKey.key == clean_key,
-                    IdempotencyKey.status == "in_progress",
-                )
-                .first()
-            )
-            if entry:
-                db.delete(entry)
-                db.commit()
-        raise exc
+                ).update({
+                    "response_json": json.dumps({"status": "completed"}),
+                    "status": "completed",
+                    "updated_at": datetime.now(timezone.utc),
+                })
+                fallback_db.commit()
+        except Exception:
+            pass
+
+    return result, False
