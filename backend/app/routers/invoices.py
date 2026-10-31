@@ -31,9 +31,16 @@ def list_invoices(
     db: Session = Depends(get_db),
     _: User = Depends(require_roles("admin", "staff")),
 ):
+    today = clock.today()
     query = db.query(Invoice)
-    if status:
+    if status and status.lower() == "overdue":
+        query = query.filter(*invoice_service.get_overdue_filter(today))
+    elif status:
         query = query.filter(Invoice.status == status)
+
+    if payment_status and payment_status.lower() == "overdue" and not (status and status.lower() == "overdue"):
+        query = query.filter(*invoice_service.get_overdue_filter(today))
+
     if customer_id:
         query = query.filter(Invoice.customer_id == customer_id)
     if subscription_id:
@@ -47,11 +54,13 @@ def list_invoices(
         .all()
     )
 
-    today = clock.today()
     results = []
     for inv in items:
         resp = InvoiceResponse.model_validate(inv)
         resp.payment_status = invoice_service.derive_payment_status(inv, today)
+        if inv.status == "confirmed" and inv.due_date < today and inv.amount_paid < inv.total:
+            resp.days_overdue = (today - inv.due_date).days
+            resp.amount_due = inv.total - inv.amount_paid
         if not payment_status or resp.payment_status.lower() == payment_status.lower():
             results.append(resp)
 

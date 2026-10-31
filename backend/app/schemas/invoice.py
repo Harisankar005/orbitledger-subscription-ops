@@ -73,6 +73,8 @@ class InvoiceResponse(BaseModel):
 
     # Computed derived status
     payment_status: Optional[str] = None  # Draft, Paid, Partially paid, Outstanding, Overdue, Cancelled
+    days_overdue: Optional[int] = None
+    amount_due: Optional[Decimal] = None
 
     customer: Optional[CustomerResponse] = None
     lines: List[InvoiceLineResponse] = []

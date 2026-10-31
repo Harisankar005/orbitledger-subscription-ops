@@ -5,11 +5,31 @@ from typing import List, Optional
 
 from sqlalchemy.orm import Session
 
+from app.clock import clock
 from app.errors import ConflictError, NotFoundError
 from app.models.billing import Invoice
 from app.models.platform import OutboxMessage
 from app.schemas.invoice import BulkInvoiceActionResult, BulkInvoiceItemResult
 from app.services.audit import log_audit
+
+
+def get_overdue_filter(today: Optional[date] = None):
+    """Return the single authoritative filter condition for overdue invoices.
+
+    Definition: status confirmed AND due_date < today AND amount_paid < total.
+    """
+    if today is None:
+        today = clock.today()
+    return [
+        Invoice.status == "confirmed",
+        Invoice.due_date < today,
+        Invoice.amount_paid < Invoice.total,
+    ]
+
+
+def get_overdue_invoices_query(db: Session, today: Optional[date] = None):
+    """Return the single authoritative query for overdue invoices using the shared filter."""
+    return db.query(Invoice).filter(*get_overdue_filter(today))
 
 
 def derive_payment_status(inv: Invoice, today: date) -> str:
@@ -20,10 +40,10 @@ def derive_payment_status(inv: Invoice, today: date) -> str:
         return "Draft"
     if inv.amount_paid >= inv.total:
         return "Paid"
+    if inv.status == "confirmed" and inv.due_date < today and inv.amount_paid < inv.total:
+        return "Overdue"
     if inv.amount_paid > 0:
         return "Partially paid"
-    if inv.due_date < today:
-        return "Overdue"
     return "Outstanding"
 
 

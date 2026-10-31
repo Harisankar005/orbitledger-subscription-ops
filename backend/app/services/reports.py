@@ -12,6 +12,7 @@ from app.clock import clock
 from app.models.billing import Invoice, Payment
 from app.models.catalog import Plan
 from app.models.subscription import Subscription
+from app.services.invoice import get_overdue_invoices_query
 from app.services.tax import round_money
 
 # In-process 15-second TTL cache for dashboard summary metrics (PLAN.md 5.8)
@@ -101,18 +102,26 @@ def get_dashboard_summary(
     inv_totals = inv_query.first()
     total_invoiced = inv_totals[0] if inv_totals else Decimal("0.00")
     total_collected = inv_totals[1] if inv_totals else Decimal("0.00")
-    total_outstanding = max(Decimal("0.00"), total_invoiced - total_collected)
 
-    # 3. Overdue Aging Buckets (1-30, 31-60, 61+ days)
-    overdue_invoices = (
-        db.query(Invoice)
-        .filter(
-            Invoice.status == "confirmed",
-            Invoice.due_date < today,
-            Invoice.amount_paid < Invoice.total,
-        )
-        .all()
-    )
+    # Outstanding: confirmed invoices only (total - amount_paid), excluding draft and cancelled
+    outstanding_query = db.query(
+        func.coalesce(func.sum(Invoice.total - Invoice.amount_paid), Decimal("0.00"))
+    ).filter(Invoice.status == "confirmed")
+
+    if date_from:
+        outstanding_query = outstanding_query.filter(Invoice.issue_date >= date_from)
+    if date_to:
+        outstanding_query = outstanding_query.filter(Invoice.issue_date <= date_to)
+    if customer_id:
+        outstanding_query = outstanding_query.filter(Invoice.customer_id == customer_id)
+
+    total_outstanding = outstanding_query.scalar() or Decimal("0.00")
+
+    # 3. Overdue Aging Buckets (1-30, 31-60, 61+ days) using the shared query
+    overdue_query = get_overdue_invoices_query(db, today)
+    if customer_id:
+        overdue_query = overdue_query.filter(Invoice.customer_id == customer_id)
+    overdue_invoices = overdue_query.all()
 
     overdue_count = len(overdue_invoices)
     overdue_total = Decimal("0.00")
@@ -193,12 +202,7 @@ def export_report_csv(db: Session, kind: str) -> str:
         writer.writerow(["Invoice Number", "Customer", "Due Date", "Days Overdue", "Total", "Paid", "Balance Due"])
         today = clock.today()
         overdue_invs = (
-            db.query(Invoice)
-            .filter(
-                Invoice.status == "confirmed",
-                Invoice.due_date < today,
-                Invoice.amount_paid < Invoice.total,
-            )
+            get_overdue_invoices_query(db, today)
             .order_by(Invoice.due_date.asc())
             .all()
         )

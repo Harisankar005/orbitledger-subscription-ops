@@ -4,6 +4,8 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import List
 
+from dateutil.relativedelta import relativedelta
+
 from app.clock import clock
 from app.db import SessionLocal, engine
 from app.models import Base
@@ -31,6 +33,7 @@ from app.models.subscription import (
     SubscriptionStatusHistory,
 )
 from app.security import hash_password
+from app.services.billing import get_period_delta
 from app.services.tax import round_money
 
 
@@ -387,11 +390,27 @@ def seed_database(small: bool = True):
             p = plans_pool[i % len(plans_pool)]
             st = status_pool[i % len(status_pool)]
 
-            # Stagger start dates over past 6 months to create realistic billing cycles
-            months_back = random.randint(1, 6)
-            sub_start = today - timedelta(days=months_back * 30)
-            sub_expiry = sub_start + timedelta(days=365)
-            next_inv = sub_start + timedelta(days=30 * (months_back - 1)) if st == "active" else sub_start
+            # Stagger start dates and billing cycles using anchor-based relativedelta helper
+            period_unit = p.billing_period
+            past_periods = (i % 3) + 1
+            sub_start = today - get_period_delta(period_unit, past_periods)
+            sub_expiry = sub_start + relativedelta(years=2)
+
+            due_stride = 8 if small else 200
+            is_due = (i % due_stride == 0)
+
+            if st == "active":
+                periods_billed = past_periods if is_due else past_periods + 1
+                next_inv = sub_start + get_period_delta(period_unit, periods_billed)
+            elif st == "closed":
+                periods_billed = past_periods
+                next_inv = sub_start + get_period_delta(period_unit, periods_billed)
+            elif st == "paused":
+                periods_billed = past_periods + 1
+                next_inv = sub_start + get_period_delta(period_unit, periods_billed)
+            else:
+                periods_billed = 0
+                next_inv = sub_start
 
             sub = Subscription(
                 number=f"SUB-{i+1:06d}",
@@ -403,7 +422,7 @@ def seed_database(small: bool = True):
                 payment_term_id=term_30.id,
                 quotation_valid_until=today + timedelta(days=30) if st == "quotation" else None,
                 billing_anchor=sub_start,
-                periods_billed=max(1, months_back - 1) if st in ("active", "closed") else 0,
+                periods_billed=periods_billed,
                 next_invoice_date=next_inv,
                 currency="INR",
                 notes=f"Sample contract for {cust.name}",
@@ -457,10 +476,11 @@ def seed_database(small: bool = True):
         inv_idx = 1
         for s in created_subs:
             if s.status in ("active", "closed", "paused"):
-                # Create 1 to 3 historic invoices
+                # Create historic invoices using same anchor-based period helper as billing.py
+                period_unit = s.plan.billing_period
                 for period_num in range(s.periods_billed):
-                    p_start = s.billing_anchor + timedelta(days=30 * period_num)
-                    p_end = p_start + timedelta(days=29)
+                    p_start = s.billing_anchor + get_period_delta(period_unit, period_num)
+                    p_end = (s.billing_anchor + get_period_delta(period_unit, period_num + 1)) - timedelta(days=1)
                     issue_dt = p_start
 
                     # Aging distribution:
@@ -471,14 +491,14 @@ def seed_database(small: bool = True):
                     tax_amt = round_money(lines_subtotal * Decimal("0.18"))
                     inv_total = lines_subtotal + tax_amt
 
-                    # Status mix: Paid, Overdue, Partially Paid
+                    # Status mix: Paid, Overdue, Partially Paid across aging buckets
                     is_overdue = due_dt < today
-                    if period_num == 0:
+                    if period_num == 0 and (s.id % 3 != 0):
                         inv_status = "paid"
                         amt_paid = inv_total
                     elif is_overdue:
                         inv_status = "confirmed"
-                        amt_paid = Decimal("0.00") if period_num % 2 == 0 else round_money(inv_total * Decimal("0.50"))
+                        amt_paid = Decimal("0.00") if period_num % 2 == 0 else round_money(inv_total * Decimal("0.40"))
                     else:
                         inv_status = "confirmed"
                         amt_paid = Decimal("0.00")
@@ -545,6 +565,60 @@ def seed_database(small: bool = True):
                         ))
 
                     inv_idx += 1
+
+            elif s.status in ("draft", "quotation") and s.id in (4, 8, 12, 16):
+                # Create a few seeded draft invoices for draft/quotation subscriptions (proves draft exclusion)
+                period_unit = s.plan.billing_period
+                p_start = s.billing_anchor
+                p_end = (s.billing_anchor + get_period_delta(period_unit, 1)) - timedelta(days=1)
+                draft_subtotal = sum(li.amount for li in s.lines) + s.plan.price
+                draft_tax = round_money(draft_subtotal * Decimal("0.18"))
+                draft_total = round_money(draft_subtotal + draft_tax)
+                draft_inv = Invoice(
+                    number=f"INV-{inv_idx:06d}",
+                    subscription_id=s.id,
+                    customer_id=s.customer_id,
+                    period_start=p_start,
+                    period_end=p_end,
+                    issue_date=today - timedelta(days=20),
+                    due_date=today - timedelta(days=5),  # Due date is past, but status is draft!
+                    status="draft",
+                    subtotal=round_money(draft_subtotal),
+                    discount_total=Decimal("0.00"),
+                    tax_total=round_money(draft_tax),
+                    total=round_money(draft_total),
+                    amount_paid=Decimal("0.00"),
+                    currency="INR",
+                    version=1,
+                )
+                db.add(draft_inv)
+                inv_idx += 1
+
+        # UPDATE number_counters so that SUB.next_value = (highest numeric suffix among subscriptions.number) + 1
+        # and INV.next_value = (highest numeric suffix among invoices.number) + 1
+        max_sub = 0
+        for (num,) in db.query(Subscription.number).all():
+            suffix = num.split("-")[-1]
+            if suffix.isdigit():
+                max_sub = max(max_sub, int(suffix))
+
+        max_inv = 0
+        for (num,) in db.query(Invoice.number).all():
+            suffix = num.split("-")[-1]
+            if suffix.isdigit():
+                max_inv = max(max_inv, int(suffix))
+
+        sub_counter = db.query(NumberCounter).filter(NumberCounter.name == "SUB").first()
+        if sub_counter:
+            sub_counter.next_value = max_sub + 1
+        else:
+            db.add(NumberCounter(name="SUB", next_value=max_sub + 1))
+
+        inv_counter = db.query(NumberCounter).filter(NumberCounter.name == "INV").first()
+        if inv_counter:
+            inv_counter.next_value = max_inv + 1
+        else:
+            db.add(NumberCounter(name="INV", next_value=max_inv + 1))
 
         db.commit()
 

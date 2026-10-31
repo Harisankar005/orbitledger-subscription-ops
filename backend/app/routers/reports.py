@@ -6,11 +6,14 @@ from fastapi.responses import PlainTextResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.clock import clock
 from app.db import get_db
 from app.deps import require_roles
-from app.models.billing import Payment
+from app.models.billing import Invoice, Payment
 from app.models.identity import User
 from app.models.subscription import Subscription
+from app.schemas.invoice import InvoiceResponse
+from app.services import invoice as invoice_service
 from app.services import reports as reports_service
 
 router = APIRouter(prefix="/reports", tags=["reports"])
@@ -27,6 +30,44 @@ def get_summary(
     _: User = Depends(require_roles("admin", "staff")),
 ):
     return reports_service.get_dashboard_summary(db, date_from, date_to, customer_id, plan_id)
+
+
+@router.get("/overdue", response_model=Dict[str, Any])
+def get_overdue_report(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    customer_id: Optional[int] = Query(None),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_roles("admin", "staff")),
+):
+    """Paginated overdue invoices report with days_overdue calculated using the shared filter."""
+    today = clock.today()
+    query = invoice_service.get_overdue_invoices_query(db, today)
+    if customer_id:
+        query = query.filter(Invoice.customer_id == customer_id)
+
+    total = query.count()
+    items = (
+        query.order_by(Invoice.due_date.asc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+
+    results = []
+    for inv in items:
+        resp = InvoiceResponse.model_validate(inv)
+        resp.payment_status = "Overdue"
+        resp.days_overdue = (today - inv.due_date).days
+        resp.amount_due = inv.total - inv.amount_paid
+        results.append(resp)
+
+    return {
+        "items": results,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+    }
 
 
 @router.get("/revenue-by-month", response_model=List[Dict[str, Any]])
