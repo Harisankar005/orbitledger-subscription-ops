@@ -1,0 +1,144 @@
+from typing import Any, Dict, Optional
+
+from fastapi import APIRouter, Depends, Query, Request
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
+from app.clock import clock
+from app.config import settings
+from app.db import get_db
+from app.deps import require_roles
+from app.errors import ForbiddenError
+from app.events import broadcaster
+from app.models.identity import User
+from app.models.platform import AuditLog, OutboxMessage
+from app.services.billing import run_billing_engine
+
+router = APIRouter(tags=["platform"])
+
+
+@router.get("/health")
+def health():
+    return {"status": "ok", "time": clock.now().isoformat()}
+
+
+@router.get("/ready")
+def readiness_check(db: Session = Depends(get_db)):
+    db.execute(text("SELECT 1"))
+    return {"status": "ready", "database": "connected", "simulated_date": clock.today().isoformat()}
+
+
+@router.get("/events")
+async def sse_events(request: Request):
+    """Server-Sent Events endpoint for real-time frontend updates (PLAN.md 5.9)."""
+    return StreamingResponse(
+        broadcaster.subscribe(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@router.get("/audit-log", response_model=Dict[str, Any])
+def list_audit_logs(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=100),
+    entity_type: Optional[str] = Query(None),
+    actor_id: Optional[int] = Query(None),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_roles("admin")),
+):
+    query = db.query(AuditLog)
+    if entity_type:
+        query = query.filter(AuditLog.entity_type == entity_type)
+    if actor_id:
+        query = query.filter(AuditLog.actor_id == actor_id)
+
+    total = query.count()
+    items = query.order_by(AuditLog.at.desc()).offset((page - 1) * page_size).limit(page_size).all()
+
+    return {
+        "items": [
+            {
+                "id": a.id,
+                "actor_id": a.actor_id,
+                "action": a.action,
+                "entity_type": a.entity_type,
+                "entity_id": a.entity_id,
+                "before": a.before_state,
+                "after": a.after_state,
+                "request_id": a.request_id,
+                "at": a.at,
+            }
+            for a in items
+        ],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+    }
+
+
+@router.get("/outbox", response_model=Dict[str, Any])
+def list_outbox_messages(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=100),
+    status: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_roles("admin")),
+):
+    query = db.query(OutboxMessage)
+    if status:
+        query = query.filter(OutboxMessage.status == status)
+
+    total = query.count()
+    items = query.order_by(OutboxMessage.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
+
+    return {
+        "items": [
+            {
+                "id": m.id,
+                "to_email": m.to_email,
+                "subject": m.subject,
+                "kind": m.kind,
+                "status": m.status,
+                "attempts": m.attempts,
+                "last_error": m.last_error,
+                "created_at": m.created_at,
+                "sent_at": m.sent_at,
+            }
+            for m in items
+        ],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+    }
+
+
+class AdvanceClockRequest(BaseModel):
+    months: int = 1
+
+
+@router.post("/demo/advance-clock")
+def demo_time_travel(
+    req: AdvanceClockRequest,
+    current_user: User = Depends(require_roles("admin")),
+):
+    """Time-travel demo mode: Advance simulated clock and trigger billing (PLAN.md 5.10 P2)."""
+    if not settings.DEMO_MODE:
+        raise ForbiddenError("Demo mode is disabled in production")
+
+    old_date = clock.today()
+    new_date = clock.advance_months(req.months)
+    billing_result = run_billing_engine(as_of_date=new_date, dry_run=False, actor_id=current_user.id)
+
+    return {
+        "old_date": old_date.isoformat(),
+        "new_date": new_date.isoformat(),
+        "months_advanced": req.months,
+        "billing_result": billing_result.model_dump(),
+    }

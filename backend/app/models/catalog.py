@@ -1,13 +1,13 @@
 from datetime import date
 from decimal import Decimal
 from typing import Optional
+
 from sqlalchemy import (
     BigInteger,
     Boolean,
     CheckConstraint,
     Date,
     ForeignKey,
-    Index,
     Integer,
     Numeric,
     String,
@@ -15,6 +15,7 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from app.db import Base
 from app.models.base import TimestampMixin
 

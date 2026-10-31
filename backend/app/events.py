@@ -1,6 +1,7 @@
 import asyncio
 import json
-from typing import AsyncGenerator, Dict, Any
+from typing import Any, AsyncGenerator, Dict
+
 import structlog
 
 logger = structlog.get_logger()

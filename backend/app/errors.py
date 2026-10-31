@@ -1,8 +1,9 @@
-from typing import Any, Dict, Optional
+from typing import Dict, Optional
+
+import structlog
 from fastapi import Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-import structlog
 
 logger = structlog.get_logger()
 

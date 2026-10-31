@@ -1,17 +1,18 @@
 from datetime import datetime, timezone
 from typing import Any, Optional
+
 from sqlalchemy import (
+    JSON,
     BigInteger,
     CheckConstraint,
     DateTime,
     ForeignKey,
-    Index,
     Integer,
-    JSON,
     String,
     Text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from app.db import Base
 from app.models.base import TimestampMixin
 

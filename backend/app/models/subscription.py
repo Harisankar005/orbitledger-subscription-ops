@@ -1,6 +1,7 @@
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Optional
+
 from sqlalchemy import (
     BigInteger,
     CheckConstraint,
@@ -14,6 +15,7 @@ from sqlalchemy import (
     Text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from app.db import Base
 from app.models.base import TimestampMixin, VersionMixin
 
@@ -45,10 +47,10 @@ class Subscription(Base, TimestampMixin, VersionMixin):
     )
 
     # Relationships
-    customer: Mapped["Customer"] = relationship("Customer")
-    plan: Mapped["Plan"] = relationship("Plan")
-    template: Mapped[Optional["QuotationTemplate"]] = relationship("QuotationTemplate")
-    payment_term: Mapped["PaymentTerm"] = relationship("PaymentTerm")
+    customer: Mapped["Customer"] = relationship("Customer")  # noqa: F821
+    plan: Mapped["Plan"] = relationship("Plan")  # noqa: F821
+    template: Mapped[Optional["QuotationTemplate"]] = relationship("QuotationTemplate")  # noqa: F821
+    payment_term: Mapped["PaymentTerm"] = relationship("PaymentTerm")  # noqa: F821
     lines: Mapped[list["SubscriptionLine"]] = relationship("SubscriptionLine", back_populates="subscription", cascade="all, delete-orphan")
     status_history: Mapped[list["SubscriptionStatusHistory"]] = relationship("SubscriptionStatusHistory", back_populates="subscription", cascade="all, delete-orphan", order_by="SubscriptionStatusHistory.changed_at.desc()")
 
@@ -72,9 +74,9 @@ class SubscriptionLine(Base, TimestampMixin):
     )
 
     subscription: Mapped["Subscription"] = relationship("Subscription", back_populates="lines")
-    product: Mapped["Product"] = relationship("Product")
-    variant: Mapped[Optional["ProductVariant"]] = relationship("ProductVariant")
-    tax: Mapped[Optional["Tax"]] = relationship("Tax")
+    product: Mapped["Product"] = relationship("Product")  # noqa: F821
+    variant: Mapped[Optional["ProductVariant"]] = relationship("ProductVariant")  # noqa: F821
+    tax: Mapped[Optional["Tax"]] = relationship("Tax")  # noqa: F821
 
 
 class SubscriptionStatusHistory(Base, TimestampMixin):
@@ -88,4 +90,4 @@ class SubscriptionStatusHistory(Base, TimestampMixin):
     reason: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
     subscription: Mapped["Subscription"] = relationship("Subscription", back_populates="status_history")
-    actor: Mapped[Optional["User"]] = relationship("User")
+    actor: Mapped[Optional["User"]] = relationship("User")  # noqa: F821

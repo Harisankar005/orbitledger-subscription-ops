@@ -1,6 +1,7 @@
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional
+
 from sqlalchemy import (
     BigInteger,
     Boolean,
@@ -16,6 +17,7 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from app.db import Base
 from app.models.base import TimestampMixin, VersionMixin
 
