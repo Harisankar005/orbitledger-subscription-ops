@@ -81,6 +81,11 @@ export function PortalShell() {
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
         <Outlet />
       </main>
+
+      {/* Footer */}
+      <footer className="border-t border-slate-200 bg-white py-3 text-center text-xs text-slate-400">
+        Brightloop Platform • Built for Odoo Hackathon by <span className="font-medium text-slate-600">B. Harisankar</span> & <span className="font-medium text-slate-600">Rohan S</span>
+      </footer>
     </div>
   );
 }

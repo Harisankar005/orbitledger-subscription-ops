@@ -62,7 +62,7 @@ export function ForgotPassword() {
                   label="Account Email"
                   type="email"
                   required
-                  placeholder="alex@brightloop.test"
+                  placeholder="admin@brightloop.test"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />

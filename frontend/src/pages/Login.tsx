@@ -66,7 +66,7 @@ export function Login() {
                 label="Work Email"
                 type="email"
                 required
-                placeholder="alex@brightloop.test"
+                placeholder="admin@brightloop.test"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />

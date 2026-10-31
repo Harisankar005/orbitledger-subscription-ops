@@ -1,13 +1,17 @@
 # Brightloop subscription management platform
 
-[![CI Pipeline](https://github.com/brightloop/brightloop/actions/workflows/ci.yml/badge.svg)](https://github.com/brightloop/brightloop)
+[![CI Pipeline](https://github.com/Harisankar005/demo/actions/workflows/ci.yml/badge.svg)](https://github.com/Harisankar005/demo)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com/)
 [![React 18](https://img.shields.io/badge/React-18.3-61dafb.svg)](https://react.dev/)
 [![TypeScript Strict](https://img.shields.io/badge/TypeScript-Strict-3178c6.svg)](https://www.typescriptlang.org/)
 [![PostgreSQL 16](https://img.shields.io/badge/PostgreSQL-16-336791.svg)](https://www.postgresql.org/)
 
-Brightloop manages subscription lifecycles, recurring billing, and revenue records. The application uses Python 3.12, FastAPI, SQLAlchemy 2.0, PostgreSQL with SQLite fallback, and a React 18 TypeScript single-page client.
+Brightloop manages subscription lifecycles, recurring billing, and revenue records. Built with Python 3.12, FastAPI, SQLAlchemy 2.0, PostgreSQL with SQLite fallback, and a React 18 TypeScript single-page client.
+
+> **Project Builders (Odoo Hackathon):**
+> - **B. Harisankar** ([@Harisankar005](https://github.com/Harisankar005)) — System Architecture, Billing Engine, Concurrency & Security, API Services, Database Migrations
+> - **Rohan S** — Frontend Architecture, Operations Console, Customer Portal, Recharts Analytics, Containerization & CI/CD
 
 ---
 
@@ -17,7 +21,7 @@ Run Brightloop locally without cloud services:
 
 ```bash
 # 1. Clone and enter repository
-git clone https://github.com/brightloop/brightloop.git && cd brightloop
+git clone https://github.com/Harisankar005/demo.git && cd brightloop
 
 # 2. Set up backend environment and install packages
 cd backend
@@ -192,7 +196,7 @@ Measured p95 response times:
 
 ## Team and ownership matrix
 
-- Lead: system architecture, decision records, database schema, state machine validation, submission documents.
-- Backend and database: billing engine, anchor calculations, tax resolution, discount rules, database migrations.
-- Platform and security: password security, token rotation, rate limiting, job scheduling, automated tests.
-- Frontend: React single-page app, state queries, UI components, customer portal, metric charts.
+| Builder | Core Responsibilities | Modules Owned |
+|---|---|---|
+| **B. Harisankar** | System Architecture, Data Modeling, Recurring Billing Engine, Idempotency & Concurrency, RBAC & Security, Audit Trails | ackend/app/services/billing.py, ackend/app/services/idempotency.py, ackend/app/services/subscription.py, ackend/app/models/, ackend/app/security.py |
+| **Rohan S** | Frontend Application, Customer Portal, UI Components, Operations Shell, Recharts Analytics, Docker & Nginx Infra, Test Matrix | rontend/src/, rontend/Dockerfile, rontend/nginx.conf, docker-compose.yml, ackend/tests/, ackend/app/routers/ |

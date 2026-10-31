@@ -45,10 +45,15 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Brightloop Subscription Management Platform",
+    description="Engineered by B. Harisankar and Rohan S for the Odoo Hackathon",
     version="1.0.0",
     docs_url="/api/docs",
     redoc_url="/api/redoc",
     openapi_url="/api/openapi.json",
+    contact={
+        "name": "B. Harisankar and Rohan S",
+        "url": "https://github.com/Harisankar005/demo",
+    },
     lifespan=lifespan,
 )
 

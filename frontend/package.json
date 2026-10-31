@@ -3,6 +3,16 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "author": "B. Harisankar & Rohan S",
+  "contributors": [
+    {
+      "name": "B. Harisankar",
+      "url": "https://github.com/Harisankar005"
+    },
+    {
+      "name": "Rohan S"
+    }
+  ],
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",

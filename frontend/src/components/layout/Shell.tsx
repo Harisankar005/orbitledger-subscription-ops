@@ -127,6 +127,11 @@ export function Shell() {
           )}
         </nav>
 
+        {/* Builder attribution */}
+        <div className="px-4 py-2 border-t border-slate-800/80 bg-slate-950/40 text-[11px] text-slate-400">
+          Built by <span className="text-white font-medium">B. Harisankar</span> & <span className="text-white font-medium">Rohan S</span>
+        </div>
+
         {/* User badge at bottom */}
         <div className="p-4 border-t border-slate-800 flex items-center justify-between">
           <div className="flex items-center space-x-3 overflow-hidden">

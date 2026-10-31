@@ -1,5 +1,7 @@
 # Five-minute demo script
 
+**Project Builders (Odoo Hackathon):** B. Harisankar ([@Harisankar005](https://github.com/Harisankar005)) & Rohan S
+
 This script guides a five-minute demonstration of Brightloop.
 
 ---
@@ -12,8 +14,8 @@ Start the backend and frontend processes before the demo:
 3. Local inbox: `http://localhost:8025` (Mailpit)
 
 Demo credentials:
-- Admin: `admin@brightloop.test` / `Admin@1234`
-- Staff: `staff1@brightloop.test` / `Staff@1234`
+- Admin: `admin@brightloop.test` / `Admin@1234` (B. Harisankar)
+- Staff: `staff1@brightloop.test` / `Staff@1234` (Rohan S)
 - Customer: `customer@brightloop.test` / `Customer@1234`
 
 The login page includes buttons to fill these credentials with one click.

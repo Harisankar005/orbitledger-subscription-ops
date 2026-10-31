@@ -7,6 +7,10 @@ name = "brightloop-backend"
 version = "0.1.0"
 description = "Brightloop Subscription Management System API"
 requires-python = ">=3.12"
+authors = [
+    { name = "B. Harisankar", email = "nandubhari2@gmail.com" },
+    { name = "Rohan S", email = "rohan@brightloop.test" },
+]
 dependencies = [
     "fastapi>=0.110.0",
     "uvicorn[standard]>=0.28.0",

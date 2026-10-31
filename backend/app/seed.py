@@ -55,14 +55,14 @@ def seed_database(small: bool = True):
             email="admin@brightloop.test",
             password_hash=hash_password("Admin@1234"),
             role="admin",
-            full_name="Alex Vance (Admin)",
+            full_name="B. Harisankar (Admin)",
             is_active=True,
         )
         staff1 = User(
             email="staff1@brightloop.test",
             password_hash=hash_password("Staff@1234"),
             role="staff",
-            full_name="Sarah Connor (Staff)",
+            full_name="Rohan S (Staff)",
             is_active=True,
         )
         staff2 = User(
