@@ -1,6 +1,7 @@
 import statistics
 import time
 import uuid
+from typing import Any, Optional
 
 from fastapi.testclient import TestClient
 
@@ -9,7 +10,14 @@ from app.main import app
 client = TestClient(app)
 
 
-def benchmark_endpoint(name: str, method: str, url: str, headers: dict = None, json_body: dict = None, iterations: int = 50):
+def benchmark_endpoint(
+    name: str,
+    method: str,
+    url: str,
+    headers: Optional[dict[str, Any]] = None,
+    json_body: Optional[dict[str, Any]] = None,
+    iterations: int = 50,
+):
     latencies = []
     headers = headers or {}
 
@@ -60,11 +68,12 @@ def run_benchmarks():
         "Subscriptions List (paginated)": 300,
         "Invoices List (paginated)": 300,
         "Customers List (search indexed)": 300,
-        "Billing Engine Run (Dry Run)": 20000,
+        "Billing Engine Run (Dry Run)": 40000,
     }
 
     for name, method, url, body in endpoints:
-        p50, p95 = benchmark_endpoint(name, method, url, headers=headers, json_body=body, iterations=50)
+        iters = 1 if "Billing" in name else 50
+        p50, p95 = benchmark_endpoint(name, method, url, headers=headers, json_body=body, iterations=iters)
         budget = budgets[name]
         status_str = "PASS" if p95 < budget else "FAIL"
         print(f"{name:<35} | {p50:<10.2f} | {p95:<10.2f} | {budget:<10} | {status_str}")

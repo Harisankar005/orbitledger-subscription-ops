@@ -12,6 +12,7 @@ from app.db import SessionLocal
 from app.events import broadcaster
 from app.models.billing import (
     AppliedDiscount,
+    DiscountRule,
     Invoice,
     InvoiceLine,
 )
@@ -58,6 +59,17 @@ def run_billing_engine(
     skipped_already_billed = 0
     skipped_not_due = 0
     failed_items: List[BillingRunFailedItem] = []
+
+    with SessionLocal() as db_rules:
+        active_discounts = (
+            db_rules.query(DiscountRule)
+            .filter(
+                DiscountRule.is_active.is_(True),
+                DiscountRule.start_date <= target_date,
+                DiscountRule.end_date >= target_date,
+            )
+            .all()
+        )
 
     # Read due subscriptions
     with SessionLocal() as read_session:
@@ -112,6 +124,12 @@ def run_billing_engine(
                             db.commit()
                         continue
 
+                    if dry_run:
+                        created_count += 1
+                        sub.periods_billed += 1
+                        sub.next_invoice_date = anchor + get_period_delta(period_unit, sub.periods_billed)
+                        continue
+
                     # Build invoice lines
                     invoice_lines_to_add: List[InvoiceLine] = []
                     applied_discounts_to_add: List[AppliedDiscount] = []
@@ -154,6 +172,7 @@ def run_billing_engine(
                             quantity=s_line.quantity,
                             line_amount=s_line.amount,
                             as_of_date=target_date,
+                            preloaded_rules=active_discounts,
                         )
 
                         if prod_disc_match and not dry_run:
@@ -192,6 +211,7 @@ def run_billing_engine(
                         db=db,
                         subscription_id=sub.id,
                         total_quantity=total_product_quantity,
+                        preloaded_rules=active_discounts,
                         post_line_subtotal=post_line_subtotal,
                         as_of_date=target_date,
                     )
@@ -210,7 +230,10 @@ def run_billing_engine(
                     total = subtotal - discount_total + tax_total
 
                     # Issue invoice number & compute due date
-                    inv_number = generate_next_number(db, "INV")
+                    if not dry_run:
+                        inv_number = generate_next_number(db, "INV")
+                    else:
+                        inv_number = f"INV-DRY-{sub.id}"
                     payment_term_days = sub.payment_term.days if sub.payment_term else 0
                     due_date = target_date + timedelta(days=payment_term_days)
 

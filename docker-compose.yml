@@ -33,10 +33,12 @@ services:
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     environment:
       DATABASE_URL: postgresql+psycopg://brightloop:brightloop@db:5432/brightloop
-      SECRET_KEY: ${SECRET_KEY}
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY environment variable must be explicitly set}
       ENVIRONMENT: ${ENVIRONMENT:-production}
       DEMO_MODE: ${DEMO_MODE:-false}
+      ALLOW_PRODUCTION_DEMO_OVERRIDE: ${ALLOW_PRODUCTION_DEMO_OVERRIDE:-false}
       SECURE_COOKIES: ${SECURE_COOKIES:-true}
+      COOKIE_SAMESITE: strict
       SMTP_HOST: mailpit
       SMTP_PORT: 1025
       SMTP_FROM: billing@brightloop.test
@@ -57,9 +59,12 @@ services:
     command: python -m app.worker
     environment:
       DATABASE_URL: postgresql+psycopg://brightloop:brightloop@db:5432/brightloop
-      SECRET_KEY: ${SECRET_KEY}
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY environment variable must be explicitly set}
       ENVIRONMENT: ${ENVIRONMENT:-production}
       DEMO_MODE: ${DEMO_MODE:-false}
+      ALLOW_PRODUCTION_DEMO_OVERRIDE: ${ALLOW_PRODUCTION_DEMO_OVERRIDE:-false}
+      SECURE_COOKIES: ${SECURE_COOKIES:-true}
+      COOKIE_SAMESITE: strict
       SMTP_HOST: mailpit
       SMTP_PORT: 1025
       SMTP_FROM: billing@brightloop.test

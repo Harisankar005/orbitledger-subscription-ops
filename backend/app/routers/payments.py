@@ -11,6 +11,7 @@ from app.models.identity import User
 from app.schemas.invoice import PaymentResponse
 from app.schemas.payment import PaymentCreate
 from app.services import payment as payment_service
+from app.services.idempotency import execute_with_idempotency
 
 router = APIRouter(tags=["payments"])
 
@@ -26,15 +27,32 @@ def record_payment_direct(
     if not req.invoice_id:
         raise ValidationError("invoice_id is required", fields={"invoice_id": "Must specify invoice_id"})
     req_id = getattr(request.state, "request_id", None)
-    payment = payment_service.record_payment(
-        db=db,
-        invoice_id=req.invoice_id,
-        req=req,
-        actor_id=current_user.id,
-        idempotency_key=idempotency_key,
-        request_id=req_id,
-    )
-    return PaymentResponse.model_validate(payment)
+
+    def do_payment():
+        payment = payment_service.record_payment(
+            db=db,
+            invoice_id=req.invoice_id,
+            req=req,
+            actor_id=current_user.id,
+            idempotency_key=idempotency_key,
+            request_id=req_id,
+        )
+        return PaymentResponse.model_validate(payment).model_dump()
+
+    clean_key = idempotency_key or req.idempotency_key
+    if clean_key:
+        res, _ = execute_with_idempotency(
+            key=clean_key,
+            endpoint="/api/payments",
+            payload=req,
+            operation_fn=do_payment,
+            scope="payments.record",
+        )
+        if isinstance(res, PaymentResponse):
+            return res
+        return PaymentResponse(**res)
+
+    return PaymentResponse(**do_payment())
 
 
 @router.get("/payments", response_model=Dict[str, Any])
@@ -78,12 +96,29 @@ def record_invoice_payment(
     idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
 ):
     req_id = getattr(request.state, "request_id", None)
-    payment = payment_service.record_payment(
-        db=db,
-        invoice_id=invoice_id,
-        req=req,
-        actor_id=current_user.id,
-        idempotency_key=idempotency_key,
-        request_id=req_id,
-    )
-    return PaymentResponse.model_validate(payment)
+
+    def do_payment():
+        payment = payment_service.record_payment(
+            db=db,
+            invoice_id=invoice_id,
+            req=req,
+            actor_id=current_user.id,
+            idempotency_key=idempotency_key,
+            request_id=req_id,
+        )
+        return PaymentResponse.model_validate(payment).model_dump()
+
+    clean_key = idempotency_key or req.idempotency_key
+    if clean_key:
+        res, _ = execute_with_idempotency(
+            key=clean_key,
+            endpoint=f"/api/invoices/{invoice_id}/payments",
+            payload=req,
+            operation_fn=do_payment,
+            scope="payments.record",
+        )
+        if isinstance(res, PaymentResponse):
+            return res
+        return PaymentResponse(**res)
+
+    return PaymentResponse(**do_payment())

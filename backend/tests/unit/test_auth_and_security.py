@@ -1,3 +1,4 @@
+import re
 import uuid
 from datetime import datetime, timezone
 
@@ -11,6 +12,7 @@ from app.db import SessionLocal
 from app.errors import ForbiddenError, UnauthorizedError, ValidationError
 from app.main import app
 from app.models.identity import PasswordResetToken, RefreshToken, User
+from app.models.platform import OutboxMessage
 from app.routers.auth import clear_refresh_cookie, set_refresh_cookie
 from app.schemas.auth import RegisterRequest
 from app.security import validate_password_strength
@@ -26,19 +28,23 @@ client = TestClient(app)
 
 
 def test_production_configuration_validation():
-    """Verify that insecure production secrets or cookie settings fail startup immediately."""
-    # 1. Short secret key in production fails
+    """Verify that insecure production secrets, missing secrets, cookie settings, and unvalidated demo mode fail startup."""
+    # 1. Missing secret key in production fails
+    with pytest.raises(ValueError, match="SECRET_KEY environment variable is required"):
+        Settings(ENVIRONMENT="production", SECRET_KEY="")
+
+    # 2. Short secret key in production fails
     with pytest.raises(ValueError, match="SECRET_KEY must be at least 32 characters"):
         Settings(ENVIRONMENT="production", SECRET_KEY="short-key")
 
-    # 2. Known default / placeholder secret key in production fails
+    # 3. Known default / placeholder secret key in production fails
     with pytest.raises(ValueError, match="cannot use default, placeholder, or known insecure strings"):
         Settings(ENVIRONMENT="production", SECRET_KEY="docker-compose-insecure-secret-key-32chars")
 
     with pytest.raises(ValueError, match="cannot use default, placeholder, or known insecure strings"):
         Settings(ENVIRONMENT="production", SECRET_KEY="brightloop-super-secret-key-at-least-32-chars-2026")
 
-    # 3. Disabling secure cookies in production fails
+    # 4. Disabling secure cookies in production fails
     with pytest.raises(ValueError, match="SECURE_COOKIES cannot be False in production"):
         Settings(
             ENVIRONMENT="production",
@@ -46,13 +52,46 @@ def test_production_configuration_validation():
             SECURE_COOKIES=False,
         )
 
-    # 4. Valid production settings succeed, with DEMO_MODE defaulting to False and cookies Secure
+    # 5. Non-strict cookie SameSite in production fails
+    with pytest.raises(ValueError, match="COOKIE_SAMESITE must be 'strict' in production"):
+        Settings(
+            ENVIRONMENT="production",
+            SECRET_KEY="cryptographically-strong-random-key-64-characters-prod-ready-xyz",
+            COOKIE_SAMESITE="lax",
+        )
+
+    # 6. Enabling DEMO_MODE in production without explicit override fails
+    with pytest.raises(ValueError, match="DEMO_MODE cannot be enabled in production without explicit ALLOW_PRODUCTION_DEMO_OVERRIDE=True"):
+        Settings(
+            ENVIRONMENT="production",
+            SECRET_KEY="cryptographically-strong-random-key-64-characters-prod-ready-xyz",
+            DEMO_MODE=True,
+        )
+
+    # 7. Valid production settings succeed, with DEMO_MODE defaulting to False and cookies Secure
     valid_prod = Settings(
         ENVIRONMENT="production",
         SECRET_KEY="cryptographically-strong-random-key-64-characters-prod-ready-xyz",
     )
     assert valid_prod.is_cookie_secure is True
     assert valid_prod.DEMO_MODE is False
+    assert valid_prod.COOKIE_SAMESITE == "strict"
+
+    # 8. Valid production settings with explicit override succeeds
+    valid_prod_override = Settings(
+        ENVIRONMENT="production",
+        SECRET_KEY="cryptographically-strong-random-key-64-characters-prod-ready-xyz",
+        DEMO_MODE=True,
+        ALLOW_PRODUCTION_DEMO_OVERRIDE=True,
+    )
+    assert valid_prod_override.DEMO_MODE is True
+
+    # 9. Local development convenience settings remain isolated and functional
+    dev_settings = Settings(ENVIRONMENT="development")
+    assert dev_settings.SECRET_KEY is not None
+    assert len(dev_settings.SECRET_KEY) >= 32
+    assert dev_settings.DEMO_MODE is True
+    assert dev_settings.is_cookie_secure is False
 
 
 def test_refresh_cookie_attributes():
@@ -197,11 +236,7 @@ def test_password_reset_revokes_all_refresh_tokens():
 
     # Reset password using token
     with SessionLocal() as db:
-        # We need the raw token; query the outbox message or inspect reset token
-        from app.models.platform import OutboxMessage
         outbox = db.query(OutboxMessage).filter(OutboxMessage.to_email == test_email).first()
-        # Extract raw token from outbox body HTML
-        import re
         match = re.search(r"font-size: 16px;\">(.*?)<", outbox.body_html)
         raw_reset_token = match.group(1).strip()
 

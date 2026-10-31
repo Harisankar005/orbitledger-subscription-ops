@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from sqlalchemy import (
     JSON,
@@ -10,11 +10,15 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
 from app.models.base import TimestampMixin
+
+if TYPE_CHECKING:
+    from app.models.identity import User
 
 
 class AuditLog(Base):
@@ -30,7 +34,7 @@ class AuditLog(Base):
     request_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True, nullable=False)
 
-    actor: Mapped[Optional["User"]] = relationship("User")  # noqa: F821
+    actor: Mapped[Optional["User"]] = relationship("User")
 
 
 class OutboxMessage(Base, TimestampMixin):
@@ -55,8 +59,16 @@ class OutboxMessage(Base, TimestampMixin):
 class IdempotencyKey(Base):
     __tablename__ = "idempotency_keys"
 
-    key: Mapped[str] = mapped_column(String(128), primary_key=True)
+    id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
+    scope: Mapped[str] = mapped_column(String(100), index=True, nullable=False, default="default")
+    key: Mapped[str] = mapped_column(String(128), index=True, nullable=False)
     endpoint: Mapped[str] = mapped_column(String(255), nullable=False)
     request_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     response_json: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="in_progress", index=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("scope", "key", name="uq_idempotency_scope_key"),
+    )

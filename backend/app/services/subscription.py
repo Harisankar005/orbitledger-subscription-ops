@@ -117,6 +117,7 @@ def create_from_template(
             product_id=tl.product_id,
             variant_id=tl.variant_id,
             quantity=tl.quantity,
+            unit_price=None,
         )
         for tl in tpl.lines
     ]

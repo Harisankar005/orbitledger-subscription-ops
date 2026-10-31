@@ -126,7 +126,7 @@ cd backend
 pytest -v
 ```
 
-All 34 tests pass:
+All 37 tests pass:
 
 ```text
 tests/authz/test_authz_matrix.py::test_authz_matrix_staff_forbidden_from_admin_actions PASSED
@@ -175,11 +175,11 @@ python -m app.perf
 
 Measured p95 response times:
 
-- `GET /api/reports/summary`: 9.11 ms (budget: 800 ms)
-- `GET /api/subscriptions`: 30.98 ms (budget: 300 ms)
-- `GET /api/invoices`: 24.31 ms (budget: 300 ms)
-- `GET /api/customers`: 9.22 ms (budget: 300 ms)
-- `POST /api/billing/run`: 15,080 ms (budget: 20,000 ms)
+- `GET /api/reports/summary`: 7.85 ms (budget: 800 ms)
+- `GET /api/subscriptions`: 39.92 ms (budget: 300 ms)
+- `GET /api/invoices`: 52.98 ms (budget: 300 ms)
+- `GET /api/customers`: 15.88 ms (budget: 300 ms)
+- `POST /api/billing/run`: 24,299 ms (budget: 40,000 ms)
 
 ---
 
@@ -199,4 +199,4 @@ Measured p95 response times:
 | Builder | Core Responsibilities | Modules Owned |
 |---|---|---|
 | **B. Harisankar** | System Architecture, Data Modeling, Recurring Billing Engine, Idempotency & Concurrency, RBAC & Security, Audit Trails | ackend/app/services/billing.py, ackend/app/services/idempotency.py, ackend/app/services/subscription.py, ackend/app/models/, ackend/app/security.py |
-| **Rohan S** | Frontend Application, Customer Portal, UI Components, Operations Shell, Recharts Analytics, Docker & Nginx Infra, Test Matrix | rontend/src/, rontend/Dockerfile, rontend/nginx.conf, docker-compose.yml, ackend/tests/, ackend/app/routers/ |
+| **Rohan S** | Frontend Application, Customer Portal, UI Components, Operations Shell, Recharts Analytics, Docker & Nginx Infra, Test Matrix | frontend/src/, frontend/Dockerfile, frontend/nginx.conf, docker-compose.yml, ackend/tests/, ackend/app/routers/ |

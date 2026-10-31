@@ -10,7 +10,7 @@ Brightloop uses three controls:
 
 1. **Unique constraints.** The `invoices` table enforces `UNIQUE(subscription_id, period_start)`. The database engine rejects duplicate invoices for the same cycle.
 2. **Row locking.** On PostgreSQL, the billing query runs with `SELECT ... FOR UPDATE SKIP LOCKED`. A worker locks eligible subscriptions before processing, so parallel workers skip them. On SQLite, the operation runs within a serialized transaction.
-3. **Idempotency keys.** The endpoints `POST /api/billing/run` and `POST /api/payments` require an `Idempotency-Key` header. The service hashes the JSON payload with SHA-256 and caches the result. Repeated requests with the same key and payload return the cached response. Replaying the key with changed parameters returns HTTP 409.
+3. **Scoped idempotency keys.** Operations require an `Idempotency-Key` header scoped to the logical domain (for example, `billing.run` and `payments.record`). The `idempotency_keys` table enforces `UNIQUE(scope, key)`. The service hashes the JSON payload with canonical SHA-256 and records an `in_progress` reservation. Repeated requests with the same key and payload return the cached response. Replaying the key with changed parameters or against a different scope returns HTTP 409. If an unhandled crash leaves an in-progress record older than 60 seconds, subsequent requests reclaim the key cleanly.
 
 ---
 

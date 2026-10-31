@@ -21,7 +21,7 @@ Brightloop uses defense-in-depth across database constraints, server dependencie
 
 ### Threat: insecure production defaults and misconfiguration
 
-1. **Configuration validator.** During application startup, `app/config.py` runs validation when `ENVIRONMENT` is set to `production`. The check requires `SECRET_KEY` to be at least 32 characters and rejects known defaults (`docker-compose-insecure-secret-key-32chars`, `insecure`, `changeme`). It also requires `SECURE_COOKIES=True` and sets `DEMO_MODE=False`. Violations abort process boot with a `ValueError`.
+1. **Configuration validator.** During application startup, `app/config.py` runs validation when `ENVIRONMENT` is set to `production`. The check requires `SECRET_KEY` to be at least 32 characters and rejects known defaults (`docker-compose-insecure-secret-key-32chars`, `insecure`, `changeme`). It also requires `SECURE_COOKIES=True` and `COOKIE_SAMESITE=strict`. It prevents `DEMO_MODE=True` unless `ALLOW_PRODUCTION_DEMO_OVERRIDE=True` is explicitly configured. Violations abort process boot with a `ValueError`.
 2. **UTC timestamp consistency.** The SQLite driver returns timestamps without timezone information. Helper `ensure_utc` in `app/clock.py` normalizes all stored expiration, lockout, and token timestamps to offset-aware UTC before comparisons.
 
 ---
@@ -57,11 +57,12 @@ The application rejects IEEE 754 binary floating-point numbers for money calcula
 1. **Unique constraints.** The `invoices` table enforces `UNIQUE(subscription_id, period_start)`. The database engine prevents inserting two invoices for the same subscription period.
 2. **Row locking.** Generating billing rows uses `SELECT ... FOR UPDATE` or `FOR UPDATE SKIP LOCKED` on PostgreSQL to serialize changes.
 3. **Optimistic locking.** Mutable tables maintain an integer `version` column. State transitions require matching versions and return 409 if another process modified the row.
-4. **Idempotency service.** `POST /api/billing/run` and payment endpoints require an `Idempotency-Key` header. The service computes a canonical SHA-256 hash of the payload:
+4. **Scoped idempotency service.** `POST /api/billing/run` and payment endpoints require an `Idempotency-Key` header with explicit operation scopes (`billing.run`, `payments.record`). The `idempotency_keys` table enforces `UNIQUE(scope, key)`. The service computes a canonical SHA-256 hash of the payload:
    - When a request begins, the service inserts an in-progress record. Sibling concurrent requests with the same key receive 409 (`CONCURRENT_REQUEST_IN_PROGRESS`).
-   - If a request repeats with the same key and identical payload, the service returns the saved response.
-   - If a request repeats with the same key but a different payload, the service returns 409 (`IDEMPOTENCY_PAYLOAD_MISMATCH`).
-   - If an operation fails, the service removes the in-progress record so the caller can retry.
+   - If a request repeats with the same key within its scope and an identical payload, the service returns the completed response.
+   - If a key is reused across different endpoints or with a changed payload, the service returns 409 (`IDEMPOTENCY_ENDPOINT_MISMATCH` or `IDEMPOTENCY_PAYLOAD_MISMATCH`).
+   - If an operation fails, the service cleans up the in-progress reservation so the caller can retry immediately.
+   - If an unhandled process termination leaves an in-progress record older than 60 seconds (`stale_timeout_seconds`), subsequent retries safely reclaim and execute the operation.
 
 ### Threat: payment replay
 

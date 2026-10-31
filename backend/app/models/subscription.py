@@ -1,6 +1,17 @@
 from datetime import date, datetime, timezone
 from decimal import Decimal
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from app.models.catalog import (
+        PaymentTerm,
+        Plan,
+        Product,
+        ProductVariant,
+        QuotationTemplate,
+        Tax,
+    )
+    from app.models.identity import Customer, User
 
 from sqlalchemy import (
     BigInteger,

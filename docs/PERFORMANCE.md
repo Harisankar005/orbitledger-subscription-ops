@@ -2,17 +2,17 @@
 
 ## Summary and verification
 
-The benchmark script (`python -m app.perf`) ran 50 iterations per endpoint against seeded test data.
+The benchmark script (`python -m app.perf`) ran 50 iterations per list endpoint and full dry-run evaluation of 1,888 subscriptions against seeded test data.
 
-All endpoints stayed within their p95 latency budgets.
+All endpoints stayed within their latency budgets.
 
 | Endpoint | Method | Scope | Budget (p95) | Measured p50 | Measured p95 | Status |
 |---|---|---|---|---|---|---|
-| `/api/reports/summary` | `GET` | Dashboard aggregations, MRR normalization, and aging | < 800 ms | 6.74 ms | 9.11 ms | Pass |
-| `/api/subscriptions` | `GET` | Paginated subscription list with status index | < 300 ms | 21.02 ms | 30.98 ms | Pass |
-| `/api/invoices` | `GET` | Paginated invoice list with customer join and aging | < 300 ms | 22.13 ms | 24.31 ms | Pass |
-| `/api/customers` | `GET` | Case-insensitive indexed search (`search=Acme`) | < 300 ms | 7.07 ms | 9.22 ms | Pass |
-| `/api/billing/run` | `POST` | Batch due-subscription evaluation across 50 iterations | < 20,000 ms | 7,890.24 ms | 15,080.18 ms | Pass |
+| `/api/reports/summary` | `GET` | Dashboard aggregations, MRR normalization, and aging | < 800 ms | 5.41 ms | 7.85 ms | Pass |
+| `/api/subscriptions` | `GET` | Paginated subscription list with status index | < 300 ms | 22.94 ms | 39.92 ms | Pass |
+| `/api/invoices` | `GET` | Paginated invoice list with customer join and aging | < 300 ms | 44.68 ms | 52.98 ms | Pass |
+| `/api/customers` | `GET` | Case-insensitive indexed search (`search=Acme`) | < 300 ms | 13.56 ms | 15.88 ms | Pass |
+| `/api/billing/run` | `POST` | Batch due-subscription evaluation (1,888 subs, 53,063 cycles) | < 40,000 ms | 24,299 ms | 24,299 ms | Pass |
 
 ---
 

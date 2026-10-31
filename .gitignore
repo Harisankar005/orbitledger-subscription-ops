@@ -33,6 +33,8 @@ htmlcov/
 
 # Database & runtime
 *.db
+*.db-shm
+*.db-wal
 *.sqlite3
 *.log
 backend/brightloop.db

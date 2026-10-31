@@ -32,6 +32,7 @@ def trigger_billing_run(
         endpoint="/api/billing/run",
         payload=req,
         operation_fn=do_billing,
+        scope="billing.run",
     )
 
     if isinstance(res, BillingRunResponse):
