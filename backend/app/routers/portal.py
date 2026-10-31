@@ -128,3 +128,17 @@ def get_my_profile(
     customer: Customer = Depends(get_customer_scope),
 ):
     return CustomerResponse.model_validate(customer)
+
+
+@router.patch("/profile", response_model=CustomerResponse)
+def update_my_profile(
+    req: Dict[str, Any],
+    customer: Customer = Depends(get_customer_scope),
+    db: Session = Depends(get_db),
+):
+    for field in ["name", "phone", "company", "billing_address", "tax_id"]:
+        if field in req and req[field] is not None:
+            setattr(customer, field, req[field])
+    db.commit()
+    db.refresh(customer)
+    return CustomerResponse.model_validate(customer)
