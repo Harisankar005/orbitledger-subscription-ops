@@ -1,102 +1,103 @@
-# Judge Q&A Defense Cheat Sheet
+# Judge questions and answers
 
-This document equips the team with concise, authoritative answers to deep engineering and business logic questions judges may ask during evaluation.
-
----
-
-### Q1: "How do you guarantee that a subscription is never double-billed if two cron jobs trigger simultaneously or if a network retry occurs?"
-**Answer**:
-> "We implement a 3-layer defense against double billing:
-> 1. **Database Constraint (The Ultimate Guard)**: We enforce a compound unique constraint on the `invoices` table: `UNIQUE(subscription_id, period_start)`. At the database engine level, two concurrent transactions attempting to insert an invoice for the same subscription and period will result in a unique violation.
-> 2. **Serialized Row Locking**: On PostgreSQL, our billing query runs with `SELECT ... FOR UPDATE SKIP LOCKED` (and serializes via row locks on SQLite). A worker locks eligible subscriptions before processing, ensuring sibling workers skip records currently under active generation.
-> 3. **Idempotency Keys & Payload Verification**: API endpoints like `POST /api/billing/run` and `POST /api/payments` require an `Idempotency-Key` header with canonical SHA-256 payload hashing (`execute_with_idempotency`). Requests with duplicate keys return the cached result payload without re-executing transactions. Replaying a key with modified payload fails with `409 Conflict`, and concurrent duplicate requests are blocked via atomic in-progress reservations."
+Technical and architectural questions for the Brightloop evaluation.
 
 ---
 
-### Q2: "Why did you use Python `Decimal` and `Numeric(14,2)` instead of standard IEEE 754 floats?"
-**Answer**:
-> "Binary floating-point arithmetic is inherently lossy for base-10 currency math (e.g., in JavaScript or Python `0.1 + 0.2 = 0.30000000000000004`). In financial accounting, fractional cent creep across thousands of billing lines corrupts tax calculations and ledger reconciliations.
->
-> In Brightloop, money is strictly handled via Python's `Decimal` class with `ROUND_HALF_UP` executed per line item, and persisted in SQL as `Numeric(14,2)`. We verified this invariant with property-based testing (`hypothesis`) across arbitrary price and quantity permutations in `tests/unit/test_pricing_and_tax.py`."
+### How do you prevent duplicate billing during network retries or concurrent cron jobs?
+
+Brightloop uses three controls:
+
+1. **Unique constraints.** The `invoices` table enforces `UNIQUE(subscription_id, period_start)`. The database engine rejects duplicate invoices for the same cycle.
+2. **Row locking.** On PostgreSQL, the billing query runs with `SELECT ... FOR UPDATE SKIP LOCKED`. A worker locks eligible subscriptions before processing, so parallel workers skip them. On SQLite, the operation runs within a serialized transaction.
+3. **Idempotency keys.** The endpoints `POST /api/billing/run` and `POST /api/payments` require an `Idempotency-Key` header. The service hashes the JSON payload with SHA-256 and caches the result. Repeated requests with the same key and payload return the cached response. Replaying the key with changed parameters returns HTTP 409.
 
 ---
 
-### Q3: "What happens when a subscription starts on January 31st? Does the next invoice drift to February 28th and then March 28th?"
-**Answer**:
-> "This is a classic billing engine flaw known as 'anchor drift'. If you simply add 30 days or increment months from the previous invoice date (`Feb 28 + 1 month = Mar 28`), your billing anchor slowly creeps forward.
->
-> In Brightloop, we store a permanent `billing_anchor` on the subscription record (the original `start_date`, e.g. Jan 31). Every period is calculated as:
-> `period_start = billing_anchor + relativedelta(months=periods_billed)`
->
-> Using `dateutil.relativedelta`, Jan 31 + 1 month becomes Feb 28, but Jan 31 + 2 months snaps back to March 31. We wrote an explicit test for this exact scenario in `tests/concurrency/test_billing_idempotency.py`."
+### Why use Python Decimal and Numeric(14,2) instead of floating-point numbers?
+
+Binary floating-point arithmetic introduces precision errors in base-10 math (for example, `0.1 + 0.2 = 0.30000000000000004`). In financial accounting, fractional cent errors accumulate across invoice line items.
+
+Brightloop handles money using Python's `Decimal` class with `ROUND_HALF_UP` on each line item. The database stores these values as `Numeric(14,2)`. Tests in `tests/unit/test_pricing_and_tax.py` verify these invariants with randomized property-based tests.
 
 ---
 
-### Q4: "How does your discount engine prevent margin collapse when multiple coupons and promotions overlap?"
-**Answer**:
-> "We established Architectural Decision **D-004** for discount stacking:
-> 1. **Two distinct scopes**: Line-level discounts (`product` scope) apply to specific goods, while order-level discounts (`subscription` scope) apply to the overall order.
-> 2. **Best-Single Rule**: For any line item, the engine evaluates all active eligible product promotions and picks the single discount that yields the highest deduction.
-> 3. **Non-compounding Order Discount**: The engine then evaluates subscription-level discounts against the remaining post-line subtotal and applies the best single order coupon.
-> 4. **Bound Invariants**: No line can have a discount exceeding its base price, and no invoice can discount below ₹0.00."
+### What happens when a subscription starts on January 31st? Does the next invoice drift to February 28th and then March 28th?
+
+Date addition without an anchor causes drift when months vary in length. Adding one month to February 28 produces March 28 instead of March 31.
+
+Brightloop stores a `billing_anchor` on the subscription record set to the original start date (January 31). Each period calculation uses:
+`period_start = billing_anchor + relativedelta(months=periods_billed)`
+
+Using `dateutil.relativedelta`, January 31 plus one month resolves to February 28, and January 31 plus two months resolves to March 31. The test `test_month_end_anchor_relativedelta_drift_free` in `tests/concurrency/test_billing_idempotency.py` checks this calculation.
 
 ---
 
-### Q5: "How did you prevent Broken Object-Level Authorization (IDOR) in the customer portal?"
-**Answer**:
-> "We do not rely on frontend path checks. In `app/deps.py`, the `get_customer_scope` dependency extracts the authenticated user from the verified JWT in the current session.
->
-> Every portal endpoint automatically scopes all SQL queries by `customer_id == customer.id`. Crucially, if a user attempts to fetch or manipulate a subscription or invoice ID that belongs to another customer, the server responds with **`404 Not Found`** rather than `403 Forbidden`. This completely prevents malicious actors from enumerating resource IDs across the platform."
+### How does the discount engine handle overlapping promotions?
+
+Decision record D-004 defines discount evaluation:
+
+1. **Two scopes.** Line-level discounts apply to specific goods. Subscription-level discounts apply to the subtotal.
+2. **Best single rule.** For each line item, the engine checks all eligible product discounts and applies the single discount with the largest deduction.
+3. **Non-compounding order discount.** The engine evaluates subscription discounts against the remaining post-line subtotal and applies the best single discount.
+4. **Bounds.** Line discounts cannot exceed the line item base price, and total discounts cannot exceed the pre-discount total.
 
 ---
 
-### Q6: "How does your system scale if Brightloop grows to 500,000 active subscriptions?"
-**Answer**:
-> "1. **Stateless API tier**: The FastAPI application holds zero session state in local process memory (JWTs are decoded with symmetric keys, DB connection pool is managed by SQLAlchemy). It scales horizontally across multiple containers behind Nginx or an AWS ALB.
-> 2. **Worker Partitioning**: Nightly billing runs are paginated and chunked into batches using `FOR UPDATE SKIP LOCKED`. Multiple worker processes can run concurrently on different nodes without colliding or duplicating work.
-> 3. **Covering Indexes**: We created compound indexes specifically aligned with high-frequency billing queries:
->    - `subscriptions(status, next_invoice_date)`
->    - `invoices(subscription_id, period_start)` (Unique)
->    - `partial index on invoices(due_date) WHERE status='confirmed'` for instant overdue aging."
+### How do you prevent broken object-level authorization in the customer portal?
+
+The `get_customer_scope` dependency in `app/deps.py` reads the customer id from the verified JWT.
+
+Portal endpoints filter queries by `customer_id == customer.id`. If a user requests a record belonging to another customer, the server returns 404 rather than 403. This prevents attackers from testing which resource IDs exist.
 
 ---
 
-### Q7: "Why did you implement the Transactional Outbox Pattern for email delivery?"
-**Answer**:
-> "Sending emails synchronously within an HTTP request or DB transaction is an anti-pattern:
-> 1. If the SMTP server is slow or down, the user's API call hangs or fails, even though the database record was valid.
-> 2. If the DB transaction rolls back after the SMTP call succeeded, a phantom invoice notification is delivered to the customer for an invoice that doesn't exist.
->
-> With the **Transactional Outbox Pattern**, notification emails are written as rows into the `outbox_messages` table within the exact same database transaction as the business event. Our background worker process asynchronously dequeues pending messages and delivers them to Mailpit with automated retry logic and exponential backoff."
+### How does the architecture scale to larger subscription volumes?
+
+1. **Stateless API.** FastAPI nodes hold no session state in process memory. The API scales horizontally behind an HTTP load balancer.
+2. **Worker partitioning.** Scheduled billing queries use `FOR UPDATE SKIP LOCKED`. Multiple worker processes consume non-overlapping partitions of due subscriptions concurrently.
+3. **Targeted indexes.** Compound indexes match the primary search and batch query filters:
+   - `subscriptions(status, next_invoice_date)`
+   - `invoices(subscription_id, period_start)` (unique)
+   - `invoices(status, due_date)` for overdue balances
 
 ---
 
-### Q8: "How does your token refresh mechanism protect against token theft and replay attacks?"
-**Answer**:
-> "We implement **Refresh Token Rotation with Token Families**:
-> 1. The short-lived access JWT (15 min) lives only in browser memory.
-> 2. The refresh token is delivered in a `SameSite=Strict`, `httpOnly`, `Secure` cookie.
-> 3. Every time a refresh token is used, it is revoked and replaced with a new token assigned to the same `family_id`.
-> 4. If an attacker intercepts and replays an already-revoked refresh token, our security middleware detects reuse and **immediately invalidates the entire family**, locking out the attacker and forcing the legitimate user to re-authenticate."
+### Why use the transactional outbox pattern for emails?
+
+Sending emails directly inside an HTTP request or database transaction has two failure modes:
+1. If the SMTP server responds slowly or fails, the user request blocks or fails even when the database write succeeded.
+2. If the transaction rolls back after the SMTP call succeeds, the customer receives an email for a transaction that does not exist.
+
+With the transactional outbox pattern, the API writes email notifications to the `outbox_messages` table within the same transaction as the business event. A background worker process polls pending messages and delivers them to the mail server with retries.
 
 ---
 
-### Q9: "How do you handle coupon codes with a max usage limit under high concurrency?"
-**Answer**:
-> "We avoid the classic 'read-then-update' race condition where two concurrent checkouts read `used_count = 99` on a limit of 100 and both proceed.
->
-> Instead, Brightloop executes an atomic conditional SQL update:
-> ```sql
-> UPDATE discount_rules
-> SET used_count = used_count + 1
-> WHERE id = :id AND (usage_limit IS NULL OR used_count < usage_limit)
-> ```
-> If `rowcount == 0`, the limit was exhausted mid-flight, and the engine gracefully rejects the discount application for that transaction."
+### How does token refresh defend against token theft?
+
+1. The access token lasts fifteen minutes and lives only in browser memory.
+2. The refresh token sits in an `HttpOnly`, `SameSite=Strict` cookie with the `Secure` flag in production.
+3. Each refresh exchange invalidates the incoming token and issues a new one with the same family identifier.
+4. If a previously consumed or revoked token is reused, the service revokes all active tokens in that family and forces re-authentication.
 
 ---
 
-### Q10: "Why support SQLite alongside PostgreSQL?"
-**Answer**:
-> "We wanted an **offline-first, zero-barrier-to-entry developer experience**. A judge or hackathon evaluator reviewing our repository shouldn't be blocked if they do not have a Docker daemon or local PostgreSQL cluster configured.
->
-> We wrote 100% portable SQLAlchemy 2.0 ORM expressions, while isolating Postgres-specific optimizations (`SKIP LOCKED`, advisory locks) behind clean dialect guards. Brightloop boots and runs flawlessly with both `sqlite:///brightloop.db` and `postgresql://postgres:postgres@localhost:5432/brightloop` without code changes."
+### How do you enforce usage limits on coupons under concurrent requests?
+
+Brightloop avoids read-then-write races by using an atomic SQL update:
+
+```sql
+UPDATE discount_rules
+SET used_count = used_count + 1
+WHERE id = :id AND (usage_limit IS NULL OR used_count < usage_limit);
+```
+
+If the update affects zero rows, the limit was exhausted and the service rejects the coupon application for that request.
+
+---
+
+### Why support SQLite alongside PostgreSQL?
+
+The repository supports running and testing without requiring Docker or a local PostgreSQL installation.
+
+All queries use portable SQLAlchemy 2.0 ORM expressions. PostgreSQL-specific features (`SKIP LOCKED` and advisory locks) sit behind dialect checks. Brightloop runs on both `sqlite:///brightloop.db` and PostgreSQL with identical business logic.

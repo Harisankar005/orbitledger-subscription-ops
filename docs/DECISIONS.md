@@ -1,29 +1,29 @@
-# Architecture & Business Logic Decisions (ADRs)
+# Architecture and business logic decisions
 
-### D-001: Plan Recurring Base Fee vs Product Lines
-- **Context**: In SaaS subscription billing, subscriptions often comprise a base fee for the tier/service plus metered seats or product addons.
-- **Decision**: Plan `price` is modeled as the base recurring fee and is automatically generated as a line item of source `plan_fee` on every invoice for that period. Product lines represent seats, addon modules, and variants.
-- **Consequence**: Clear itemization on customer invoices, transparent tax calculation per component, and simplified revenue accounting.
+### D-001: recurring base fee and product lines
+- Context. Subscriptions combine a recurring tier fee with seat counts and add-on products.
+- Decision. Plan price represents the recurring base fee and appears as a line item on each periodic invoice. Product lines represent seats, modules, and variants.
+- Consequence. Invoices separate the base tier charge from variable product lines with clear line-item tax calculation.
 
-### D-002: Minimum Quantity Definition
-- **Context**: Plans have a `min_quantity` attribute.
-- **Decision**: `min_quantity` is defined as the minimum sum of quantities across all product/addon lines attached to the subscription.
-- **Consequence**: Enforced strictly when transitioning a subscription out of `draft` status. Subscriptions failing this requirement cannot be quoted or confirmed.
+### D-002: minimum quantity definition
+- Context. Plans include a minimum quantity requirement.
+- Decision. Minimum quantity is the required sum of quantities across all attached product lines.
+- Consequence. Subscriptions must meet this total quantity before leaving the Draft status.
 
-### D-003: Billing Engine Proration Policy
-- **Context**: Handling mid-period cancellations and renewals.
-- **Decision**: No mid-period proration. A period is billed in full if its start date falls on or before the subscription's `expiry_date`.
-- **Consequence**: Deterministic and audit-friendly billing math without fractional cent ambiguity; clearly communicated to customers upfront.
+### D-003: billing proration policy
+- Context. Handling mid-cycle cancellations and renewals.
+- Decision. No partial period proration. The engine bills a cycle in full if its start date falls on or before the subscription expiration date.
+- Consequence. Deterministic billing math without fractional day calculations.
 
-### D-004: Discount Rule Stacking Policy
-- **Context**: Multiple discount rules may simultaneously qualify on an invoice.
-- **Decision**: 
-  1. Product-scoped discounts: For each line item, evaluate all active eligible product rules and apply the **best single** discount (maximum monetary deduction).
-  2. Subscription-scoped discounts: Evaluate all active eligible subscription rules against the post-line-discount subtotal and apply the **best single** discount.
-  3. Total line discounts cannot exceed the line's taxable base amount, and total invoice discounts cannot exceed the pre-discount subtotal.
-- **Consequence**: Prevents runaway compounding discounts while guaranteeing maximum savings for the customer without complex rule ordering conflicts.
+### D-004: discount rule stacking policy
+- Context. Multiple promotional discounts may qualify on a single invoice.
+- Decision.
+  1. Product discounts: For each line item, evaluate active eligible product rules and apply the single discount with the largest monetary deduction.
+  2. Subscription discounts: Evaluate eligible subscription-level rules against the post-line subtotal and apply the single largest discount.
+  3. Limits: Line discounts cannot exceed the line total, and order discounts cannot exceed the pre-discount total.
+- Consequence. Avoids compounding discounts while applying the largest single deduction for the customer.
 
-### D-005: Database Dialect Compatibility & Fallback
-- **Context**: Judges and team members may run the codebase without Docker or local PostgreSQL daemon.
-- **Decision**: Use portable SQLAlchemy 2.0 ORM construct patterns. PostgreSQL optimizations (row locks with `SKIP LOCKED`, advisory locks for worker synchronization) are guarded with `if session.bind.dialect.name == "postgresql"`. SQLite fallback is fully supported with WAL mode and row-level safety.
-- **Consequence**: Zero-friction setup on any developer laptop or evaluation machine while offering full enterprise concurrency on PostgreSQL.
+### D-005: database dialect compatibility and fallback
+- Context. Local development and grading may run without PostgreSQL installed.
+- Decision. Write queries using portable SQLAlchemy 2.0 ORM expressions. Guard PostgreSQL-specific statements (`SKIP LOCKED` and advisory locks) behind database dialect checks.
+- Consequence. Developers can run the application on SQLite with WAL mode while production deployments use PostgreSQL row locks.

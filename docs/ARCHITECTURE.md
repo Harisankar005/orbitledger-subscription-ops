@@ -1,106 +1,91 @@
-# Brightloop System Architecture
+# Brightloop system architecture
 
-## 1. High-Level Topology
+## 1. High-level topology
 
 ```mermaid
 flowchart TD
-    subgraph Client["Client Tier (Browser)"]
-        SPA["React 18 SPA (Vite + TS + Tailwind)"]
+    subgraph Client [Client tier]
+        SPA["React 18 single-page app"]
     end
 
-    subgraph ReverseProxy["Web Server / Reverse Proxy"]
-        Nginx["Nginx (Production) / Vite Proxy (Dev)"]
+    subgraph ReverseProxy [Web server]
+        Nginx["Nginx or Vite proxy"]
     end
 
-    subgraph Backend["Application Tier"]
-        API["FastAPI API (Port 8000)"]
-        Worker["Background Worker (APScheduler)"]
-        SSE["SSE Event Broadcaster (/api/events)"]
+    subgraph Backend [Application tier]
+        API["FastAPI API"]
+        Worker["APScheduler worker"]
+        SSE["SSE event broadcaster"]
     end
 
-    subgraph Data["Persistence & Services"]
-        DB[("PostgreSQL 16 (or SQLite Fallback)")]
-        Mailpit["Mailpit Local SMTP (:1025 / UI :8025)"]
+    subgraph Data [Persistence and services]
+        DB[("PostgreSQL 16 or SQLite")]
+        Mailpit["Mailpit local SMTP"]
     end
 
-    SPA -->|HTTP REST / SSE| Nginx
-    Nginx -->|Reverse Proxy /api| API
-    API -->|Read / Write / Transactions| DB
-    API -->|Push Events| SSE
-    Worker -->|Lock / Poll Due Subs / Dunning| DB
-    Worker -->|Send Outbox Emails| Mailpit
+    SPA --> Nginx
+    Nginx --> API
+    API --> DB
+    API --> SSE
+    Worker --> DB
+    Worker --> Mailpit
 ```
 
-## 2. Layered Software Architecture
+## 2. Layered software architecture
 
-Brightloop strictly enforces a 3-tier backend design pattern:
+1. **Routers.** `app/routers/` handles HTTP transport: parameter deserialization, query parsing, status code selection, and response serialization. Routers contain no business rules or transaction management.
+2. **Services.** `app/services/` executes business rules and manages database transactions. Services enforce financial math using `Decimal`, state machine transitions, discount rules, tax resolution order, billing runs, and audit log writes.
+3. **Models and repositories.** `app/models/` defines declarative SQLAlchemy 2.0 mapped models, database constraints, and indexes.
 
-1. **Routers (`app/routers/*`)**:
-   - HTTP transport only: parameter deserialization, query parsing, status code selection, response serialization.
-   - Zero business rules or transaction management.
-2. **Services (`app/services/*`)**:
-   - The authoritative core of the platform.
-   - Manages database transaction boundaries (`session.commit()` / `session.rollback()`).
-   - Implements invariants: pricing math with `Decimal`, state machine transitions, discount eligibility, tax resolution order, billing runs, and audit trail emission.
-3. **Models & Repositories (`app/models/*`, `app/repositories/*`)**:
-   - Declarative SQLAlchemy 2.0 mapped models.
-   - Database constraints (CHECK, UNIQUE, Foreign Keys, Indexes).
-
-## 3. Subscription Lifecycle State Machine
+## 3. Subscription lifecycle state machine
 
 ```mermaid
 stateDiagram-v2
-    [*] --> draft: Create subscription or from template
-    draft --> quotation: Validate min_quantity & availability
-    quotation --> confirmed: Confirm before validity expires
+    [*] --> draft: Create subscription or use template
+    draft --> quotation: Validate minimum quantity and products
+    quotation --> confirmed: Confirm quotation before expiration
     quotation --> draft: Revise quotation
-    confirmed --> active: Activate manually or on start_date
-    active --> paused: Pause (if plan.allow_pause)
+    confirmed --> active: Activate on start date or manually
+    active --> paused: Pause when plan permits
     paused --> active: Resume
-    active --> closed: Close early (if plan.allow_early_close)
-    active --> closed: Auto-close on expiry (if plan.auto_close_on_end)
+    active --> closed: Close early when plan permits
+    active --> closed: Auto-close on expiration
     closed --> [*]
-    closed --> draft: Renew (if plan.allow_renew)
+    closed --> draft: Renew when plan permits
 ```
 
-## 4. Billing Engine & Idempotency Pipeline
+## 4. Billing engine and idempotency flow
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Scheduler as APScheduler / Admin
-    participant Engine as Billing Engine (app.services.billing)
-    participant Lock as PostgreSQL Advisory Lock / Mutex
+    actor Scheduler as APScheduler or Admin
+    participant Engine as Billing engine
+    participant Lock as PostgreSQL advisory lock
     participant DB as Database
 
-    Scheduler->>Engine: Run Billing(as_of_date, Idempotency-Key)
-    Engine->>Lock: Acquire advisory lock (prevent parallel workers)
-    Engine->>DB: Query due subscriptions (status=active, next_invoice_date <= as_of_date)
-    loop For each due subscription (own transaction)
-        loop While next_invoice_date <= as_of_date (catch up missed periods)
-            Engine->>Engine: Compute period_start = anchor + n*period (relativedelta)
-            Engine->>Engine: Resolve plan fee + product lines + variant extra prices
-            Engine->>Engine: Resolve taxes (Line -> Product Default -> Priority Tax Rule)
-            Engine->>Engine: Resolve best single product discount & invoice discount
-            Engine->>DB: Atomically increment discount used_count (conditional update)
-            Engine->>DB: Issue next invoice number from number_counters (FOR UPDATE)
-            Engine->>DB: INSERT INTO invoices (status=draft)
+    Scheduler->>Engine: Run billing(as_of_date, Idempotency-Key)
+    Engine->>Lock: Acquire advisory lock
+    Engine->>DB: Query due active subscriptions
+    loop For each due subscription
+        loop Catch up billing periods
+            Engine->>Engine: Compute period dates with relativedelta
+            Engine->>Engine: Resolve plan fee, lines, and variant prices
+            Engine->>Engine: Resolve taxes by precedence
+            Engine->>Engine: Apply best single discount rules
+            Engine->>DB: Increment discount used_count atomically
+            Engine->>DB: Issue invoice number from number_counters
+            Engine->>DB: Insert invoice (draft)
             Note over DB: Guarded by UNIQUE(subscription_id, period_start)
-            Engine->>DB: UPDATE subscription SET periods_billed += 1, next_invoice_date
+            Engine->>DB: Update subscription next_invoice_date
         end
     end
-    Engine->>DB: Commit transaction & Record Audit Log
-    Engine->>Scheduler: Return {created, skipped_already_billed, skipped_not_due, failed, duration_ms}
+    Engine->>DB: Commit transaction and write audit log
+    Engine->>Scheduler: Return run counts and duration
 ```
 
-## 5. Security & Authentication Architecture
+## 5. Security and authentication design
 
-- **Password Security**: Argon2id hashing algorithm with standard parameters. Password policy requiring minimum 9 characters, uppercase, lowercase, and special characters.
-- **Session Architecture**:
-  - Stateless JWT access tokens (15-minute validity) stored strictly in client memory.
-  - Refresh tokens stored in encrypted `httpOnly`, `Secure`, `SameSite=Strict` cookies.
-  - **Token Family Rotation**: Every refresh generates a new token in the token family. Attempted reuse of a previous token triggers instant revocation of the entire family.
-- **Role-Based Access Control (RBAC)**:
-  - Three distinct roles: `admin`, `staff`, `customer`.
-  - Server-enforced dependency injection via `require_roles()`.
-  - Ownership scoping: customer queries filter strictly by `customer.user_id == current_user.id`; unauthorized access returns `404 Not Found` to prevent IDOR scanning.
+1. **Password security.** The system hashes passwords using Argon2id. Passwords require nine characters, uppercase letters, lowercase letters, and symbols.
+2. **Session management.** Short-lived access tokens stay in client memory for fifteen minutes. Refresh tokens travel in cookies marked `HttpOnly`, `SameSite=Strict`, and `Secure` in production. Refreshing a token consumes it and returns a new token in the same family. Using a revoked token invalidates the entire family.
+3. **Role-based access.** The server guards administrative routes using role dependencies (`require_roles`). Customer portal endpoints filter queries by the authenticated user customer id and return 404 for unowned records.

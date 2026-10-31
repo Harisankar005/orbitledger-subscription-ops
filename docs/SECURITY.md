@@ -1,96 +1,96 @@
-# Brightloop Security & Threat Model
+# Brightloop security and threat model
 
-Brightloop is engineered with defense-in-depth principles across the entire application stack, from database constraints to frontend UI validations. This document outlines our threat model, attack vectors considered, and the architectural controls implemented to mitigate them.
-
----
-
-## 1. Authentication & Identity Management
-
-### Threat: Credential Stuffing, Weak Passwords & Brute Force
-- **Mitigation 1 (Password Policy)**: Minimum 9 characters (strictly `> 8`), requiring at least one uppercase letter, one lowercase letter, and one non-alphanumeric special character. Enforced both client-side via a live reactive checklist and server-side via regex-backed Pydantic validators.
-- **Mitigation 2 (Argon2id Hashing)**: Passwords are encrypted using the memory-hard **Argon2id** password hashing algorithm (via `argon2-cffi`), which is resilient against GPU and ASIC based offline brute force attacks.
-- **Mitigation 3 (Rate Limiting & Account Lockout)**: Login attempts are throttled by IP + email combinations using SlowAPI (5 attempts/min). Consecutive failures increment `failed_logins`; reaching 5 consecutive failures triggers an automatic 15-minute lockout (`locked_until`).
-- **Mitigation 4 (Enumeration Prevention)**: The forgot-password endpoint returns an identical generic message (`{"message": "If that email exists, a reset link has been dispatched."}`) regardless of whether the email is present in the database, preventing user enumeration.
-
-### Threat: Token Theft, XSS Exfiltration & Session Hijacking
-- **Mitigation 1 (In-Memory Access Tokens)**: Short-lived access JWTs (15 minutes) are kept exclusively in JavaScript memory; they are never persisted in `localStorage` or `sessionStorage`, rendering them immune to extraction via XSS.
-- **Mitigation 2 (HttpOnly Refresh Cookies)**: Refresh tokens are delivered via an `httpOnly`, `SameSite=Strict`, `Path=/api/auth` cookie, with `Secure=True` enforced in production environments, preventing client-side script inspection.
-- **Mitigation 3 (Token Family Rotation & Reuse Detection)**: Every refresh request invalidates the presenting refresh token and issues a new one within the same family ID. If a previously consumed or revoked token is replayed, the system detects a compromise and **immediately revokes all active tokens in that entire family**, requiring re-authentication.
-
-### Threat: Insecure Production Defaults & Environment Misconfiguration
-- **Mitigation 1 (Production Configuration Startup Validator)**: `app/config.py` runs a strict `model_validator` upon application initialization. If `ENVIRONMENT == "production"`:
-  - `SECRET_KEY` must be at least 32 characters and cannot match known defaults (such as `docker-compose-insecure-secret-key-32chars`, `insecure`, `changeme`, or `secret`).
-  - `SECURE_COOKIES` must be explicitly enabled (`True`).
-  - `DEMO_MODE` automatically defaults to `False`.
-  - Violations immediately abort server startup with a descriptive `ValueError`.
-- **Mitigation 2 (Timezone-Aware UTC Timestamp Invariants)**: The SQLite engine natively returns timestamps as naive `datetime` instances (`tzinfo=None`). To eliminate runtime `TypeError` when evaluating against `datetime.now(timezone.utc)`, `app/clock.py` provides `ensure_utc` which normalizes all stored expiration, lockout, and token timestamps to offset-aware UTC.
+Brightloop uses defense-in-depth across database constraints, server dependencies, and user interfaces. This document outlines the threats evaluated and the controls implemented to prevent them.
 
 ---
 
-## 2. Authorization & Multi-Tenancy (IDOR / BOLA Prevention)
+## 1. Authentication and identity management
 
-### Threat: Broken Object-Level Authorization (IDOR) & Privilege Escalation
-- **Role-Based Access Control (RBAC)**: Centralized FastAPI dependencies (`require_roles("admin")`, `require_roles("admin", "staff")`) guard every operation router.
-- **Customer Scoping & 404 Obfuscation**: Customers can never view or mutate another subscriber's records. When a customer queries a subscription, invoice, or profile:
-  ```python
-  sub = db.query(Subscription).filter(
-      Subscription.id == sub_id,
-      Subscription.customer_id == customer.id
-  ).first()
-  if not sub:
-      raise NotFoundError("Subscription not found") # Returns 404, not 403
-  ```
-  Returning `404 Not Found` rather than `403 Forbidden` completely closes entity enumeration vulnerabilities.
-- **Automated Matrix Verification**: Our automated test suite includes `tests/authz/test_authz_matrix.py`, which systematically exercises endpoints across `admin`, `staff`, `customer`, and `unauthenticated` principals, verifying that unauthorized calls are strictly denied.
+### Threat: credential stuffing, weak passwords, and brute force
 
----
+1. **Password policy.** Passwords require nine characters, uppercase letters, lowercase letters, and symbols. The frontend checks rules live, and backend Pydantic models validate them before hashing.
+2. **Password hashing.** The system hashes passwords using Argon2id (`argon2-cffi`) with memory-hard parameters.
+3. **Rate limiting and account lockout.** SlowAPI limits login calls by IP and email to five per minute. Five consecutive failed logins set `locked_until` to fifteen minutes in the future.
+4. **Enumeration protection.** The forgot-password endpoint returns `{"message": "If that email exists, a reset link has been dispatched."}` whether the email exists or not.
 
-## 3. Financial Integrity & Precision
+### Threat: token theft and session hijacking
 
-### Threat: Floating Point Rounding Inaccuracies
-- **Mitigation**: Binary floating-point arithmetic (e.g. `0.1 + 0.2 = 0.30000000000000004`) is completely prohibited across the codebase.
-- All monetary amounts, unit prices, discounts, and taxes are handled strictly using Python's `Decimal` type with `ROUND_HALF_UP` per line item, and stored as `Numeric(14, 2)` in PostgreSQL/SQLite.
-- Verified with property-based testing (`hypothesis`) over thousands of generated pricing values.
+1. **In-memory access tokens.** Access tokens last fifteen minutes and stay in client application memory. JavaScript storage APIs (`localStorage` and `sessionStorage`) never store them.
+2. **HTTP-only refresh cookies.** Refresh tokens travel in cookies marked `HttpOnly`, `SameSite=Strict`, and `Path=/api/auth`. Production configurations require the `Secure` flag.
+3. **Token family rotation.** Each refresh exchange consumes the incoming token and issues a new one with the same family identifier. Replaying an expired or revoked token triggers revocation of the entire family.
 
-### Threat: Double Invoicing, Concurrent Billing & Race Conditions
-- **Database Unique Constraint**: `invoices` contains a hard compound unique constraint `UNIQUE(subscription_id, period_start)`. Even under concurrent billing process execution, the database guarantees that a subscription can never be billed twice for the same cycle.
-- **Row Locking**: During subscription transitions and billing generation, rows are locked (`SELECT ... FOR UPDATE` or `FOR UPDATE SKIP LOCKED` on PostgreSQL) to ensure serialized state changes.
-- **Optimistic Concurrency Control**: All mutable aggregates (`subscriptions`, `invoices`) maintain a `version` column. State transitions require matching `expected_version`, failing with `409 Conflict` if another operator made a concurrent edit.
-- **Idempotency Service & Payload Verification (`app/services/idempotency.py`)**:
-  - `POST /api/billing/run` and payment operations require the `Idempotency-Key` HTTP header.
-  - The request payload is canonicalized and hashed via SHA-256 (`compute_canonical_hash`).
-  - **In-Progress Guard**: An atomic in-progress marker (`__IN_PROGRESS__`) is held in `idempotency_keys` table. Sibling concurrent calls with the same key receive `409 Conflict` (`CONCURRENT_REQUEST_IN_PROGRESS`) rather than racing.
-  - **Payload Mismatch Rejection**: Replaying an existing key with altered parameters raises `409 Conflict` (`IDEMPOTENCY_PAYLOAD_MISMATCH`).
-  - **Failure Cleanup**: If the underlying transaction fails or raises an exception, the in-progress reservation is deleted so clients can retry cleanly.
+### Threat: insecure production defaults and misconfiguration
 
-### Threat: Payment Replay & Race Conditions
-- **Idempotency Keys**: `POST /api/payments` accepts a unique `Idempotency-Key` header. Duplicate attempts with the same key immediately return the cached receipt without double-crediting.
-- Payments lock the invoice row with `with_for_update()`, check the outstanding balance, and reject payments exceeding the remaining unpaid balance.
+1. **Configuration validator.** During application startup, `app/config.py` runs validation when `ENVIRONMENT` is set to `production`. The check requires `SECRET_KEY` to be at least 32 characters and rejects known defaults (`docker-compose-insecure-secret-key-32chars`, `insecure`, `changeme`). It also requires `SECURE_COOKIES=True` and sets `DEMO_MODE=False`. Violations abort process boot with a `ValueError`.
+2. **UTC timestamp consistency.** The SQLite driver returns timestamps without timezone information. Helper `ensure_utc` in `app/clock.py` normalizes all stored expiration, lockout, and token timestamps to offset-aware UTC before comparisons.
 
 ---
 
-## 4. Audit Trail & Non-Repudiation
+## 2. Authorization and multi-tenancy
 
-### Threat: Insider Tampering & Untracked Mutations
-- **Append-Only Audit Ledger**: The `audit_log` table records every critical business mutation (`subscription.transition`, `invoice.confirmed`, `invoice.cancelled`, `payment.recorded`, `billing.run`).
-- Each entry captures:
-  - `actor_id` (User ID or null for system background worker)
-  - `action` (e.g. `subscription.transition`)
-  - `entity_type` & `entity_id`
-  - `before` state JSON snapshot
-  - `after` state JSON snapshot
-  - `request_id` (correlated with HTTP request logs)
-  - `at` UTC timestamp
-- **Zero Mutation Endpoints**: There are no update or delete routes for the audit log table. It is strictly append-only.
+### Threat: broken object-level authorization and privilege escalation
+
+1. **Role-based access control.** FastAPI dependencies (`require_roles("admin")`, `require_roles("admin", "staff")`) guard administrative routers.
+2. **Customer query scoping.** Customer endpoints filter database queries by the authenticated user customer id. Queries for unowned records return 404 rather than 403, preventing resource enumeration:
+
+```python
+sub = db.query(Subscription).filter(
+    Subscription.id == sub_id,
+    Subscription.customer_id == customer.id,
+).first()
+if not sub:
+    raise NotFoundError("Subscription not found")
+```
+
+3. **Automated matrix testing.** The test suite in `tests/authz/test_authz_matrix.py` tests administrative, staff, customer, and unauthenticated requests to verify role boundaries.
 
 ---
 
-## 5. Network & Platform Security
+## 3. Financial precision and idempotency
 
-- **Security Headers**: Standard OWASP recommended headers injected into all HTTP responses via custom Starlette middleware:
-  - `X-Content-Type-Options: nosniff`
-  - `X-Frame-Options: DENY`
-  - `X-XSS-Protection: 1; mode=block`
-  - `Referrer-Policy: strict-origin-when-cross-origin`
-- **Parameterized SQL Queries**: 100% of queries use SQLAlchemy typed ORM / Core expressions; raw string interpolation in SQL is strictly prohibited, neutralizing SQL injection.
-- **Outbox Email Isolation**: Notification emails are saved as database rows in `outbox_messages` in the same transaction as the business event. The dispatcher delivers them asynchronously to Mailpit, ensuring slow or down mail servers never impact API transaction latency or leak SMTP credentials.
+### Threat: floating-point rounding errors
+
+The application rejects IEEE 754 binary floating-point numbers for money calculations. All prices, discounts, and taxes use Python `Decimal` with `ROUND_HALF_UP` on each line item. The database stores these values as `Numeric(14, 2)`. Property-based tests in `tests/unit/test_pricing_and_tax.py` check these rounding invariants over randomized inputs.
+
+### Threat: double invoicing and concurrent billing runs
+
+1. **Unique constraints.** The `invoices` table enforces `UNIQUE(subscription_id, period_start)`. The database engine prevents inserting two invoices for the same subscription period.
+2. **Row locking.** Generating billing rows uses `SELECT ... FOR UPDATE` or `FOR UPDATE SKIP LOCKED` on PostgreSQL to serialize changes.
+3. **Optimistic locking.** Mutable tables maintain an integer `version` column. State transitions require matching versions and return 409 if another process modified the row.
+4. **Idempotency service.** `POST /api/billing/run` and payment endpoints require an `Idempotency-Key` header. The service computes a canonical SHA-256 hash of the payload:
+   - When a request begins, the service inserts an in-progress record. Sibling concurrent requests with the same key receive 409 (`CONCURRENT_REQUEST_IN_PROGRESS`).
+   - If a request repeats with the same key and identical payload, the service returns the saved response.
+   - If a request repeats with the same key but a different payload, the service returns 409 (`IDEMPOTENCY_PAYLOAD_MISMATCH`).
+   - If an operation fails, the service removes the in-progress record so the caller can retry.
+
+### Threat: payment replay
+
+Payment requests require an idempotency key. Duplicate attempts return the recorded receipt without processing a second transaction. The payment service locks the invoice row, checks the balance, and rejects amounts exceeding the remaining total.
+
+---
+
+## 4. Audit trail and change tracking
+
+### Threat: untracked mutations and tampering
+
+The append-only `audit_log` table records state changes for subscriptions, invoices, payments, and billing runs. Each entry records:
+- `actor_id` (user id or null for worker jobs)
+- `action` (name of the transition)
+- `entity_type` and `entity_id`
+- `before` and `after` JSON snapshots
+- `request_id`
+- `at` UTC timestamp
+
+The API provides no routes to edit or delete audit log rows.
+
+---
+
+## 5. Network and platform security
+
+1. **Security headers.** Middleware adds standard protection headers to HTTP responses:
+   - `X-Content-Type-Options: nosniff`
+   - `X-Frame-Options: DENY`
+   - `X-XSS-Protection: 1; mode=block`
+   - `Referrer-Policy: strict-origin-when-cross-origin`
+2. **Parameterized queries.** All database calls use typed SQLAlchemy expressions, preventing SQL injection.
+3. **Transactional outbox.** The system writes email messages to the `outbox_messages` table within the same database transaction as the business action. A background worker delivers messages asynchronously to Mailpit, preventing mail server slowdowns from delaying user requests.

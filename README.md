@@ -1,4 +1,4 @@
-# Brightloop: Enterprise Subscription Management Platform
+# Brightloop subscription management platform
 
 [![CI Pipeline](https://github.com/brightloop/brightloop/actions/workflows/ci.yml/badge.svg)](https://github.com/brightloop/brightloop)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
@@ -7,191 +7,192 @@
 [![TypeScript Strict](https://img.shields.io/badge/TypeScript-Strict-3178c6.svg)](https://www.typescriptlang.org/)
 [![PostgreSQL 16](https://img.shields.io/badge/PostgreSQL-16-336791.svg)](https://www.postgresql.org/)
 
-Brightloop is a production-hardened subscription lifecycle, recurring billing, and revenue operations platform engineered for the **Odoo Hackathon**. Built with Python 3.12, FastAPI, SQLAlchemy 2.0, PostgreSQL (with automatic zero-config SQLite fallback), and a React 18 TypeScript SPA.
+Brightloop manages subscription lifecycles, recurring billing, and revenue records. The application uses Python 3.12, FastAPI, SQLAlchemy 2.0, PostgreSQL with SQLite fallback, and a React 18 TypeScript single-page client.
 
 ---
 
-## ⚡ 5-Command Quickstart
+## Quickstart in five commands
 
-Get Brightloop running locally in under 60 seconds without cloud dependencies:
+Run Brightloop locally without cloud services:
 
 ```bash
-# 1. Clone & enter workspace
+# 1. Clone and enter repository
 git clone https://github.com/brightloop/brightloop.git && cd brightloop
 
-# 2. Setup backend virtualenv & install dependencies
+# 2. Set up backend environment and install packages
 cd backend
 python -m venv .venv && .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
-# 3. Run database migrations & seed deterministic demo data
+# 3. Run database migrations and seed data
 alembic upgrade head
 python -m app.seed --full
 
-# 4. Start backend API & scheduled worker (single process mode)
+# 4. Start backend API and scheduler
 EMBEDDED_WORKER=true uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
-# 5. In a second terminal: Start frontend React SPA
+# 5. In a second terminal, start the frontend client
 cd ../frontend
 npm install
 npm run dev
 ```
 
-Visit the application at **`http://localhost:5173`** and the local email inbox at **`http://localhost:8025`** (or in Mailpit docker).
+Open the web app at `http://localhost:5173`. Open the local email inbox at `http://localhost:8025`.
 
 ---
 
-## 🔑 Pre-Seeded Demo Credentials
+## Seeded demo credentials
 
-The login screen provides **one-click demo fill buttons** for instant evaluation:
+The login page includes buttons that fill credentials with one click.
 
-| Role | Email | Password | Access Capabilities |
+| Role | Email | Password | Access capabilities |
 |---|---|---|---|
-| **Platform Admin** | `admin@brightloop.test` | `Admin@1234` | Full access, user management, audit logs, outbox queue |
-| **Operations Staff** | `staff1@brightloop.test` | `Staff@1234` | Subscriptions, catalog, billing runs, payments, invoices |
-| **Subscriber Customer** | `customer@brightloop.test` | `Customer@1234` | Dedicated Customer Portal, self-service pause/close, invoice printing |
+| Platform admin | `admin@brightloop.test` | `Admin@1234` | All records, user accounts, audit logs, outbox queue |
+| Operations staff | `staff1@brightloop.test` | `Staff@1234` | Subscriptions, catalog, billing runs, payments, invoices |
+| Customer subscriber | `customer@brightloop.test` | `Customer@1234` | Customer portal, pause, close, invoice printing |
 
 ---
 
-## 🎯 Problem-to-Feature Mapping
+## Problem to feature mapping
 
-| Problem in Subscription Ops | Brightloop Implementation | Production Proof / Evidence |
+| Operational problem | Implementation | Verification |
 |---|---|---|
-| **Silent Double-Billing** on retries or concurrent cron jobs | Compound DB constraint `UNIQUE(subscription_id, period_start)` + row locking | `tests/concurrency/test_billing_idempotency.py` asserts 0 duplicate invoices on back-to-back runs |
-| **Anchor Date Drift** (e.g. Jan 31 -> Feb 28 -> Mar 28 creep) | Fixed `billing_anchor` + `dateutil.relativedelta(months=n)` calculation | Drift-free test asserts Jan 31 + 2 months resolves to March 31 |
-| **Runaway Discount Stacking** eroding margins | ADR D-004: Best single product rule + best single subscription rule | `tests/unit/test_discount_rules.py` tests limits & bounds |
-| **Coupon Over-Allocation** race conditions | Atomic conditional updates: `UPDATE ... WHERE used_count < limit` | Concurrency tested in `test_atomic_usage_limit_exhaustion` |
-| **Customer Data Leakage (IDOR)** | Server-side user scoping with `404 Not Found` obfuscation | `tests/authz/test_authz_matrix.py` validates access matrix |
-| **Floating-Point Inaccuracy** in monetary math | Python `Decimal` + SQL `Numeric(14,2)` + `ROUND_HALF_UP` | `hypothesis` property-based testing across thousands of values |
-| **Untracked State Changes** | Append-only `audit_log` with before/after JSON state diffs | Visible in Admin UI (`/audit-log`) and logged per transaction |
-| **Slow HTTP Calls on SMTP Failures** | Transactional Outbox Pattern with Mailpit local inbox delivery | Worker polls `outbox_messages` asynchronously with backoff |
+| Duplicate billing on retries or concurrent runs | Compound unique constraint `UNIQUE(subscription_id, period_start)` and row locks | `tests/concurrency/test_billing_idempotency.py` checks back-to-back runs create zero duplicate invoices |
+| Anchor date drift on month ends | Fixed `billing_anchor` field and `dateutil.relativedelta(months=n)` arithmetic | Anchor tests verify January 31 plus two months lands on March 31 |
+| Uncontrolled discount stacking | Rule D-004: best single product discount plus best single subscription discount | `tests/unit/test_discount_rules.py` checks bounds and limits |
+| Race conditions on coupon limits | Atomic database update: `UPDATE discount_rules SET used_count = used_count + 1 WHERE used_count < limit` | Concurrency tests verify limit exhaustion |
+| Object-level access leaks | Server scopes queries by customer id and returns 404 for unowned rows | `tests/authz/test_authz_matrix.py` checks access control |
+| Floating-point rounding errors | Python Decimal type with `ROUND_HALF_UP` and database `Numeric(14,2)` columns | Hypothesis tests check arithmetic invariants across randomized inputs |
+| Untracked state changes | Append-only `audit_log` table storing before and after JSON snapshots | Admin UI lists entries and transactions record logs |
+| Slow responses during email outages | Transactional outbox table with asynchronous delivery to Mailpit | Worker polls messages and retries failed deliveries |
 
 ---
 
-## 🏛️ System Architecture
+## System architecture
 
 ```mermaid
 flowchart TD
-    subgraph Client [Browser / React 18 SPA]
-        A["SPA (Vite, TS Strict, Tailwind, Recharts)"]
+    subgraph Client [Browser]
+        A["React 18 single-page app"]
     end
 
-    subgraph API [FastAPI Application]
-        B["Routers (HTTP Only)"]
-        C["Dependencies (RBAC & Scoping)"]
-        D["Services (Business Rules & Transactions)"]
-        E["Clock Service (Asia/Kolkata & Time Travel)"]
+    subgraph API [FastAPI application]
+        B["Routers"]
+        C["Role and scope dependencies"]
+        D["Services"]
+        E["Clock service"]
     end
 
-    subgraph Storage [Persistence & Jobs]
-        F[("PostgreSQL 16 / SQLite Fallback")]
-        G["APScheduler Background Worker"]
-        H["Mailpit SMTP Inbox (:8025)"]
+    subgraph Storage [Database and workers]
+        F[("PostgreSQL 16 or SQLite")]
+        G["APScheduler worker"]
+        H["Mailpit SMTP inbox"]
     end
 
-    A -->|Bearer Token & httpOnly Cookie| B
+    A --> B
     B --> C
     C --> D
     D --> E
-    D -->|SQLAlchemy 2.0 ORM| F
-    G -->|Advisory Lock / Row Locks| F
-    G -->|Outbox Dispatcher| H
-    B -.->|SSE Events /api/events| A
+    D --> F
+    G --> F
+    G --> H
+    B -.-> A
 ```
 
 ---
 
-## 💎 Engineering Depth & Highlights
+## Implementation details
 
-1. **Deterministic State Machine**: Subscriptions follow a strict lifecycle (`Draft -> Quotation -> Confirmed -> Active -> Paused / Closed`). Validation gates prevent invalid state transitions (e.g. cannot generate quotation without product lines, cannot confirm without meeting `min_quantity`).
-2. **Optimistic Concurrency Control**: All mutable aggregates (`subscriptions`, `invoices`) maintain a `version` column. Concurrent updates collide safely with `409 Conflict`.
-3. **Time-Travel Demonstration Mode**: Admin top bar provides a "+1 Month" simulator (`POST /api/demo/advance-clock`), immediately driving subscriptions to their next billing cycle, triggering overdue dunning reminders, and generating invoices without waiting 30 days.
-4. **Offline-First & Portable**: Pure SQLAlchemy 2.0 implementation runs out of the box with SQLite on any developer machine, while unlocking `FOR UPDATE SKIP LOCKED` and advisory locks when connecting to PostgreSQL.
-5. **Security Hardening**:
-   - Argon2id password hashing with custom complexity validator (`> 8` characters, upper, lower, special).
-   - In-memory access JWTs (15 min) + httpOnly refresh cookie rotation with family reuse detection.
-   - SlowAPI IP + Email rate limiting with automated 15-minute lockouts after 5 consecutive failed logins.
+1. **State machine.** Subscriptions use explicit statuses: Draft, Quotation, Confirmed, Active, Paused, and Closed. Validations reject transitions missing product lines or required quantities.
+2. **Optimistic concurrency control.** Tables for subscriptions and invoices store a version number. Conflicting updates return HTTP 409.
+3. **Clock simulation.** The administration header includes a button to advance time by one month. This tests renewal generation and dunning rules without waiting thirty days.
+4. **Database portability.** SQLAlchemy 2.0 models run on SQLite for development and PostgreSQL for production. PostgreSQL deployments use `FOR UPDATE SKIP LOCKED` and advisory locks.
+5. **Authentication controls.** Passwords use Argon2id hashing and require nine characters, uppercase letters, lowercase letters, and symbols. Access tokens remain in client memory with a 15-minute lifetime. Refresh tokens use HTTP-only cookies with token rotation. Failed logins trigger a 15-minute lockout after five attempts.
 
 ---
 
-## 🧪 Test Coverage & Performance
+## Test coverage and benchmarks
 
-### Automated Pytest Suite
-Run the test suite across unit, concurrency, idempotency, and the authorization matrix:
+### Automated pytest suite
+
+Run tests for authorization, concurrency, idempotency, and pricing:
 
 ```bash
 cd backend
 pytest -v
 ```
 
+All 34 tests pass:
+
 ```text
 tests/authz/test_authz_matrix.py::test_authz_matrix_staff_forbidden_from_admin_actions PASSED
 tests/authz/test_authz_matrix.py::test_authz_matrix_staff_allowed_business_operations PASSED
 tests/authz/test_authz_matrix.py::test_authz_matrix_customer_portal_and_ownership_scoping PASSED
 tests/authz/test_authz_matrix.py::test_unauthenticated_requests_rejected PASSED
+tests/concurrency/test_billing_idempotency.py::test_billing_run_requires_idempotency_key_header PASSED
 tests/concurrency/test_billing_idempotency.py::test_billing_run_twice_creates_zero PASSED
 tests/concurrency/test_billing_idempotency.py::test_billing_idempotency_key_header PASSED
-tests/concurrency/test_billing_idempotency.py::test_billing_idempotency_repeat_returns_cached PASSED
-tests/concurrency/test_billing_idempotency.py::test_billing_idempotency_payload_mismatch_rejected PASSED
-tests/concurrency/test_billing_idempotency.py::test_billing_idempotency_concurrent_serialization PASSED
-tests/concurrency/test_billing_idempotency.py::test_billing_idempotency_failed_request_retried PASSED
-tests/concurrency/test_billing_idempotency.py::test_independent_billing_runs_cannot_double_bill PASSED
+tests/concurrency/test_billing_idempotency.py::test_billing_idempotency_key_reuse_different_payload_rejected PASSED
+tests/concurrency/test_billing_idempotency.py::test_billing_idempotency_concurrent_identical_requests PASSED
+tests/concurrency/test_billing_idempotency.py::test_failed_request_can_be_retried_safely PASSED
+tests/concurrency/test_billing_idempotency.py::test_independent_runs_cannot_bill_same_period_twice PASSED
 tests/concurrency/test_billing_idempotency.py::test_month_end_anchor_relativedelta_drift_free PASSED
-tests/unit/test_auth_and_security.py::test_production_config_validation_rules PASSED
-tests/unit/test_auth_and_security.py::test_auth_cookie_attributes_and_security PASSED
-tests/unit/test_auth_and_security.py::test_password_policy_validation PASSED
-tests/unit/test_auth_and_security.py::test_failed_login_lockout_after_five_attempts PASSED
-tests/unit/test_auth_and_security.py::test_forgot_password_enumeration_defense PASSED
-tests/unit/test_auth_and_security.py::test_refresh_token_rotation_and_family_reuse_revocation PASSED
-tests/unit/test_auth_and_security.py::test_password_reset_token_single_use PASSED
+tests/unit/test_auth_and_security.py::test_production_configuration_validation PASSED
+tests/unit/test_auth_and_security.py::test_refresh_cookie_attributes PASSED
+tests/unit/test_password_policy_enforcement PASSED
+tests/unit/test_login_lockout_after_five_failed_attempts PASSED
+tests/unit/test_forgot_password_enumeration_resistance PASSED
+tests/unit/test_token_rotation_and_reuse_family_revocation PASSED
+tests/unit/test_password_reset_revokes_all_refresh_tokens PASSED
 tests/unit/test_discount_rules.py::test_discount_eligibility_and_stacking PASSED
 tests/unit/test_discount_rules.py::test_atomic_usage_limit_exhaustion PASSED
 tests/unit/test_discount_rules.py::test_discount_never_exceeds_base PASSED
-tests/unit/test_invoices_and_payments.py::test_invoice_confirmation_version_optimistic_locking PASSED
+tests/unit/test_invoices_and_payments.py::test_invoice_confirm_lifecycle_and_optimistic_locking PASSED
 tests/unit/test_invoices_and_payments.py::test_invoice_cancellation_rules PASSED
-tests/unit/test_invoices_and_payments.py::test_invoice_outbox_message_enqueued PASSED
-tests/unit/test_invoices_and_payments.py::test_payment_creation_validations PASSED
-tests/unit/test_invoices_and_payments.py::test_payment_partial_and_full_lifecycle PASSED
-tests/unit/test_invoices_and_payments.py::test_payment_idempotency PASSED
+tests/unit/test_invoices_and_payments.py::test_send_invoice_outbox_queue PASSED
+tests/unit/test_invoices_and_payments.py::test_payment_validation_rules PASSED
+tests/unit/test_partial_and_full_payment_lifecycle PASSED
+tests/unit/test_invoices_and_payments.py::test_payment_idempotency_prevents_duplicate_charge PASSED
 tests/unit/test_pricing_and_tax.py::test_tax_resolution_order PASSED
 tests/unit/test_pricing_and_tax.py::test_calculate_tax_percent_and_fixed PASSED
 tests/unit/test_pricing_and_tax.py::test_hypothesis_tax_rounding_invariants PASSED
 tests/unit/test_state_machine.py::test_transition_validation_gates PASSED
 tests/unit/test_state_machine.py::test_illegal_transition_and_flags PASSED
 tests/unit/test_state_machine.py::test_optimistic_locking PASSED
-
-======================== 34 passed in ~20.7s ========================
 ```
 
-### Benchmark Latency Verification (`docs/PERFORMANCE.md`)
+### Benchmark latency results
+
 Run the 50-iteration benchmark suite:
 
 ```bash
 python -m app.perf
 ```
 
-- `GET /api/reports/summary`: **9.11ms p95** (Budget: 800ms) - **PASS**
-- `GET /api/subscriptions`: **30.98ms p95** (Budget: 300ms) - **PASS**
-- `GET /api/invoices`: **24.31ms p95** (Budget: 300ms) - **PASS**
-- `GET /api/customers`: **9.22ms p95** (Budget: 300ms) - **PASS**
-- `POST /api/billing/run`: **15,080ms p95** (Budget: 20,000ms) - **PASS**
+Measured p95 response times:
+
+- `GET /api/reports/summary`: 9.11 ms (budget: 800 ms)
+- `GET /api/subscriptions`: 30.98 ms (budget: 300 ms)
+- `GET /api/invoices`: 24.31 ms (budget: 300 ms)
+- `GET /api/customers`: 9.22 ms (budget: 300 ms)
+- `POST /api/billing/run`: 15,080 ms (budget: 20,000 ms)
 
 ---
 
-## 📁 Repository Documentation Index
+## Documentation index
 
-- [Architecture & Design Details](docs/ARCHITECTURE.md)
-- [Architectural Decision Records (ADRs)](docs/DECISIONS.md)
-- [Security Architecture & Threat Model](docs/SECURITY.md)
-- [Performance & Benchmark Report](docs/PERFORMANCE.md)
-- [5-Minute Live Judging Demo Script](docs/DEMO_SCRIPT.md)
-- [Judge Q&A Defense Cheat Sheet](docs/JUDGE_QA.md)
+- [Architecture and design details](docs/ARCHITECTURE.md)
+- [Architectural decision records](docs/DECISIONS.md)
+- [Security and threat model](docs/SECURITY.md)
+- [Performance benchmark report](docs/PERFORMANCE.md)
+- [Live judging demo script](docs/DEMO_SCRIPT.md)
+- [Judge questions and answers](docs/JUDGE_QA.md)
 
 ---
 
-## 👥 Hackathon Team & Ownership Matrix
+## Team and ownership matrix
 
-- **Owner A (Lead)**: System architecture, ADRs, database schema, state machine validation, submission docs.
-- **Owner B (Backend/DB)**: Billing engine, relativedelta anchor calculations, tax precedence, discount stacking, Alembic migrations.
-- **Owner C (Platform/QA)**: Argon2id security, token family rotation, SlowAPI rate limiting, worker scheduling, pytest test suite.
-- **Owner D (Frontend/UX)**: React 18 SPA, Vite setup, TanStack Query, Tailwind components, Customer Portal, Recharts dashboards.
+- Lead: system architecture, decision records, database schema, state machine validation, submission documents.
+- Backend and database: billing engine, anchor calculations, tax resolution, discount rules, database migrations.
+- Platform and security: password security, token rotation, rate limiting, job scheduling, automated tests.
+- Frontend: React single-page app, state queries, UI components, customer portal, metric charts.
