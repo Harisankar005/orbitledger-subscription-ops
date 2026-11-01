@@ -115,6 +115,10 @@ def setup_controlled_database():
             os.remove(TEST_DB_PATH)
         except OSError:
             pass
+    else:
+        # Shared database (e.g. PostgreSQL in CI): restore seed so subsequent unit tests pass
+        from app.seed import seed_database
+        seed_database(small=True, reset=True)
 
 
 def get_admin_token() -> str:

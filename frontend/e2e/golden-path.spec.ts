@@ -22,7 +22,7 @@ test.describe("OrbitLedger Golden Path E2E", () => {
 
     // Arrives at customer portal
     await page.waitForURL("**/portal**");
-    await expect(page.getByText(/my subscriptions/i)).toBeVisible();
+    await expect(page.getByRole("heading", { name: /my subscriptions/i })).toBeVisible();
 
     // Log out customer
     await page.goto("/login");
@@ -33,7 +33,7 @@ test.describe("OrbitLedger Golden Path E2E", () => {
     await page.getByRole("button", { name: /sign in/i }).click();
 
     await page.waitForURL("**/");
-    await expect(page.getByText(/dashboard/i)).toBeVisible();
+    await expect(page.getByRole("heading", { name: /operations dashboard/i })).toBeVisible();
 
     // 3. Admin creates Plan in Catalog
     await page.goto("/catalog");
@@ -61,7 +61,7 @@ test.describe("OrbitLedger Golden Path E2E", () => {
     await expect(page.getByRole("heading", { name: /subscriptions/i })).toBeVisible();
 
     await page.getByRole("button", { name: /new subscription/i }).click();
-    await expect(page.getByText(/create subscription/i)).toBeVisible();
+    await expect(page.getByRole("heading", { name: /create subscription/i })).toBeVisible();
 
     // Select customer
     await page.selectOption('select[name="customer_id"]', { label: `Acme Corp ${uniqueId}` }).catch(async () => {
@@ -76,7 +76,7 @@ test.describe("OrbitLedger Golden Path E2E", () => {
     });
 
     await page.getByRole("button", { name: /create contract/i }).click();
-    await expect(page.getByText(/contract created successfully|subscription/i)).toBeVisible();
+    await expect(page.locator("text=/contract created successfully|subscription/i").first()).toBeVisible();
 
     // 5. Billing Run
     await page.goto("/billing");
@@ -132,7 +132,7 @@ test.describe("OrbitLedger Golden Path E2E", () => {
 
     await page.waitForURL("**/portal**");
     // Verify customer portal shell and data isolation
-    await expect(page.getByText(/my subscriptions/i)).toBeVisible();
+    await expect(page.getByRole("heading", { name: /my subscriptions/i })).toBeVisible();
     await expect(page.getByText(/admin/i)).not.toBeVisible();
   });
 });

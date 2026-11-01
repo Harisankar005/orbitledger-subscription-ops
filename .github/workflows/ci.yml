@@ -46,7 +46,6 @@ jobs:
 
       - name: Run test suite with pytest
         env:
-          DATABASE_URL: postgresql+psycopg://brightloop:brightloop@localhost:5432/brightloop_test
           SECRET_KEY: ci-test-secret-key-at-least-32-chars-long
           ENVIRONMENT: test
         run: |
