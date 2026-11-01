@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     PASSWORD_RESET_TOKEN_MINUTES: int = 30
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(".env", "../.env"),
         env_file_encoding="utf-8",
         extra="ignore",
     )

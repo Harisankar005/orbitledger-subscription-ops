@@ -1,3 +1,4 @@
+import logging
 import statistics
 import time
 import uuid
@@ -6,6 +7,9 @@ from typing import Any, Optional
 from fastapi.testclient import TestClient
 
 from app.main import app
+
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("asyncio").setLevel(logging.WARNING)
 
 client = TestClient(app)
 

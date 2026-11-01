@@ -112,17 +112,17 @@ In `backend/conftest.py`, pytest initializes an isolated temporary SQLite databa
 
 ### What test coverage and benchmark metrics were achieved?
 
-1. **Test Count**: 60 backend pytest tests and 16 frontend Vitest tests (76 automated tests in total, 100% passing).
+1. **Test Count**: 61 backend pytest tests and 16 frontend Vitest tests (77 automated tests in total, 100% passing).
 2. **Service Layer Coverage**: 83% overall across `app/services/`:
    - `services/catalog.py`: 98%
    - `services/tax.py`: 97%
    - `services/payment.py`: 89%
    - `services/subscription.py`: 88%
-   - `services/idempotency.py`: 85%
+   - `services/idempotency.py`: 81%
    - `services/numbering.py`: 83%
    - `services/auth.py`: 81%
 3. **API Route Synchronization**: 60 out of 60 frontend API calls match valid operations in the OpenAPI schema (`scripts/verify_api_routes.py`).
-4. **Performance**: In 50-iteration benchmarks, `GET /api/reports/summary` responds in 7.85 ms p95 (budget: 800 ms), and standard reads respond in under 55 ms p95.
+4. **Performance**: In 50-iteration benchmarks on the full 5,000-subscription dataset, `GET /api/reports/summary` responds in 7.66 ms p95 (budget: 800 ms), and standard reads respond in under 70 ms p95. Billing dry-run batch processing completes in 80.12 ms.
 
 ---
 

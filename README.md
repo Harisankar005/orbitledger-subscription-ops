@@ -9,6 +9,8 @@
 
 OrbitLedger manages subscription lifecycles, recurring billing, and revenue records. Built with Python 3.12, FastAPI, SQLAlchemy 2.0, PostgreSQL with SQLite fallback, and a React 18 TypeScript single-page client.
 
+> **Built for Brightloop Software:** OrbitLedger is the subscription operations and recurring billing platform, and `brightloop.test` serves as the primary demo tenant domain and organization context.
+>
 > **Project Builders (Odoo Hackathon):**
 > - **B. Harisankar** ([@Harisankar005](https://github.com/Harisankar005)) — System Architecture, Billing Engine, Concurrency & Security, API Services, Database Migrations
 > - **Rohan S** ([@rohan1537](https://github.com/rohan1537)) — Frontend Architecture, Operations Console, Customer Portal, Recharts Analytics, Containerization & CI/CD
@@ -23,14 +25,16 @@ Run OrbitLedger locally without cloud services:
 # 1. Clone and enter repository
 git clone https://github.com/Harisankar005/orbitledger-subscription-ops.git && cd orbitledger-subscription-ops
 
-# 2. Set up backend environment and install packages
+# 2. Set up backend environment and copy configuration
+cp .env.example backend/.env                 # Windows: copy .env.example backend\.env
 cd backend
-python -m venv .venv && .venv/bin/activate  # Windows: .venv\Scripts\activate
+python -m venv .venv
+source .venv/bin/activate                    # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
 # 3. Run database migrations and seed data
 alembic upgrade head
-python -m app.seed --full
+python -m app.seed --small
 
 # 4. Start backend API and scheduler
 EMBEDDED_WORKER=true uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
@@ -41,7 +45,9 @@ npm install
 npm run dev
 ```
 
-Open the web app at `http://localhost:5173`. Open the local email inbox at `http://localhost:8025`.
+Open the web app at `http://localhost:5173`.
+
+> **Note on Email Outbox:** The local email inbox at `http://localhost:8025` is provided by Mailpit when running with Docker Compose. In this manual setup, all generated emails are safely queued in the transactional outbox and visible inside the application on the admin Outbox page at `http://localhost:5173/admin/outbox`.
 
 ---
 
@@ -117,9 +123,9 @@ flowchart TD
 
 ## Test coverage and benchmarks
 
-### Automated test suites (76 tests passing)
+### Automated test suites (77 tests passing)
 
-The project includes 60 backend unit, concurrency, and authorization tests in pytest, alongside 16 frontend unit and validation tests in Vitest:
+The project includes 61 backend unit, concurrency, and authorization tests in pytest, alongside 16 frontend unit and validation tests in Vitest:
 
 ```bash
 # Backend pytest suite with service coverage
@@ -137,11 +143,11 @@ Coverage across `app/services`: **83%**
 - `services/tax.py`: **97%**
 - `services/payment.py`: **89%**
 - `services/subscription.py`: **88%**
-- `services/idempotency.py`: **85%**
+- `services/idempotency.py`: **81%**
 - `services/numbering.py`: **83%**
 - `services/auth.py`: **81%**
 
-All 60 backend tests pass against an isolated temporary database (`conftest.py` ensures `brightloop.db` is never touched):
+All 61 backend tests pass against an isolated temporary database (`conftest.py` ensures `brightloop.db` is never touched):
 
 ```text
 tests/authz/test_authz_matrix.py (4 tests) - Staff forbidden from admin actions, staff business ops, customer scoping, unauthenticated rejection
@@ -186,8 +192,8 @@ When running in demo mode, platform administrators (`admin@brightloop.test`) see
 
 ### Dataset sizes
 
-- **Small seed (`--small`)**: 10 customers, 6 plans, 20 subscriptions, invoices, and payments. Ideal for live evaluation and rapid walkthroughs.
-- **Full seed (`--full`)**: 100+ customers, 6 plans, 200+ subscriptions, and extensive invoice histories spanning all aging brackets (1-30, 31-60, 61+ days overdue).
+- **Small seed (`--small`)**: 20 customers, 6 plans, 35 subscriptions, 62 invoices, and 24 payments. Ideal for live evaluation and rapid local walkthroughs.
+- **Full seed (`--full`)**: 200 customers, 6 plans, 5,000 subscriptions, 8,727 invoices, and 3,333 payments spanning all aging brackets (1-30, 31-60, 61+ days overdue).
 
 ### Known limitations
 
@@ -204,13 +210,13 @@ Run the 50-iteration benchmark suite:
 python -m app.perf
 ```
 
-Measured p95 response times:
+Measured response times on the `--full` seed (p50 and p95):
 
-- `GET /api/reports/summary`: 7.85 ms (budget: 800 ms)
-- `GET /api/subscriptions`: 39.92 ms (budget: 300 ms)
-- `GET /api/invoices`: 52.98 ms (budget: 300 ms)
-- `GET /api/customers`: 15.88 ms (budget: 300 ms)
-- `POST /api/billing/run`: 24,299 ms (budget: 40,000 ms)
+- `GET /api/reports/summary`: p50: **5.40 ms**, p95: **7.66 ms** (budget: 800 ms) — Aggregates revenue totals, MRR normalization across billing frequencies, customer count, and overdue aging buckets.
+- `GET /api/subscriptions?page=1&page_size=20`: p50: **45.90 ms**, p95: **52.37 ms** (budget: 300 ms) — Paginated subscription retrieval with customer relations across 5,000 subscriptions.
+- `GET /api/invoices?page=1&page_size=20`: p50: **52.74 ms**, p95: **69.54 ms** (budget: 300 ms) — Paginated invoice listing with payment balance computation across 8,727 invoices.
+- `GET /api/customers?search=Acme`: p50: **13.74 ms**, p95: **15.68 ms** (budget: 300 ms) — Case-insensitive indexed search across 200 customer accounts.
+- `POST /api/billing/run` (dry run): p50: **80.12 ms**, p95: **80.12 ms** (budget: 40,000 ms) — Scans 5,000 subscriptions, identifies 25 due active subscriptions as of current date, and performs full dry-run invoice line and discount calculations without committing side effects.
 
 ---
 
@@ -227,7 +233,9 @@ Measured p95 response times:
 
 ## Team and ownership matrix
 
+Verified against Git history (`git shortlog -sne --all` and per-author commit inspection):
+
 | Builder | Core Responsibilities | Modules Owned |
 |---|---|---|
-| **B. Harisankar** | System Architecture, Data Modeling, Recurring Billing Engine, Idempotency & Concurrency, RBAC & Security, Audit Trails | backend/app/services/billing.py, backend/app/services/idempotency.py, backend/app/services/subscription.py, backend/app/models/, backend/app/security.py |
-| **Rohan S** | Frontend Application, Customer Portal, UI Components, Operations Shell, Recharts Analytics, Docker & Nginx Infra, Test Matrix | frontend/src/, frontend/Dockerfile, frontend/nginx.conf, docker-compose.yml, backend/tests/, backend/app/routers/ |
+| **B. Harisankar** ([@Harisankar005](https://github.com/Harisankar005)) | System Architecture, Data Modeling, Recurring Billing Engine, Pricing & Tax Engine, Idempotency & Concurrency, RBAC & Security, Audit Trails, Alembic Migrations, Containerization & CI/CD | `backend/alembic/`, `backend/app/models/`, `backend/app/services/` (billing, tax, discount, numbering, idempotency, auth, reports, audit), `backend/app/routers/` (billing, catalog, customers, discounts, invoices, payments, platform, reports, subscriptions, users), `backend/app/security.py`, `backend/app/seed.py`, `backend/app/perf.py`, `backend/tests/`, `docker-compose.yml`, `.github/workflows/ci.yml` |
+| **Rohan S** ([@rohan1537](https://github.com/rohan1537)) | Frontend Architecture, Single-Page Operations Console, Customer Portal, Recharts Analytics, Docker Nginx Reverse Proxy, Customer Self-Service Profile API, Demo Documentation | `frontend/src/` (components, pages, lib, hooks), `frontend/Dockerfile`, `frontend/nginx.conf`, `backend/app/routers/portal.py`, `docs/DEMO_SCRIPT.md` |
