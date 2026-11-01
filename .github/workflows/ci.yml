@@ -57,10 +57,9 @@ jobs:
         run: |
           python scripts/verify_api_routes.py
 
-      - name: Security audit with pip-audit (informational)
+      - name: Security audit with pip-audit
         run: |
-          pip install pip-audit
-          pip-audit backend/ || true
+          pip-audit -r backend/requirements.txt
 
   frontend:
     runs-on: ubuntu-latest

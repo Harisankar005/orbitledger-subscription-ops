@@ -100,10 +100,27 @@ The API provides no routes to edit or delete audit log rows.
 
 ## 6. Security verification and test coverage
 
-The security and idempotency controls are actively validated across 60 automated backend tests in pytest:
+The security and idempotency controls are actively validated across 76 automated backend tests in pytest:
 * `tests/authz/test_authz_matrix.py`: Verifies staff cannot perform admin operations, customers cannot access cross-tenant records, and unauthenticated requests receive 401.
 * `tests/concurrency/test_billing_idempotency.py`: Verifies atomic lease claims, stale worker timeout recovery, cross-endpoint scope isolation, and identical response caching under simultaneous concurrent requests.
+* `tests/concurrency/test_payment_and_discount_concurrency.py`: Verifies atomic conditional balance updates preventing concurrent overpayments across threads, and atomic coupon limit decrement.
 * `tests/unit/test_auth_and_security.py`: Verifies production configuration enforcement (rejecting placeholder keys, insecure cookies, lax SameSite, and unauthenticated demo mode), refresh cookie HttpOnly attributes, password complexity rules, lockout after 5 failed attempts, enumeration resistance, and token rotation family revocation.
+
+### Dependency vulnerability audits
+
+Regular automated audits are executed in CI and verified locally:
+
+1. **Python backend dependencies (`pip-audit`):**
+   - Executed against `requirements.txt`.
+   - Result: **0 known vulnerabilities** found.
+
+2. **Frontend dependencies (`npm audit --omit=dev`):**
+   - Executed against production dependencies.
+   - Known upstream transitive advisories in dependencies that cannot be upgraded without breaking framework compatibility:
+     - **`esbuild` / `vite` / `vitest` / `tinypool`:** Local dev-server and test runner tooling bundled in `dependencies`. These are build-time only tools; production runtime serves precompiled static assets through Nginx with zero Node.js execution. Upgrading to Vite 8 / Vitest 4 requires breaking architectural changes across plugins.
+     - **`minimatch`:** Transitive dependency of `@typescript-eslint`. A developer linting dependency with zero runtime exposure in client builds.
+     - **`react-router-dom` (GHSA-wrjc-x8rr-h8h6 / GHSA-337j-9hxr-rhxg):** Pertains to server-side rendering (SSR) hydration (`deserializeErrors`) and open redirects via backslash in dynamic navigation. OrbitLedger is a pure client-side SPA with no SSR hydration, and all navigation targets are hardcoded application paths. Upgrading to React Router v7 involves breaking API changes across the component tree.
+     - **`zod` (GHSA-mrhx-c7xc-m3w5):** Pertains to memory exhaustion when validating deeply nested recursive structures. OrbitLedger uses Zod schemas exclusively for flat, constrained form fields with explicit maximum lengths and regex bounds. Upgrading to Zod v4 is a major breaking change.
 
 ### Known limitations in security posture
 
