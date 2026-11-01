@@ -16,6 +16,142 @@ import {
   RotateCw,
 } from "lucide-react";
 
+export interface BillingRunResult {
+  created: number;
+  skipped_already_billed: number;
+  skipped_not_due: number;
+  remaining_due: number;
+  failed: Array<{ subscription_id?: number; subscription_number?: string; reason: string }>;
+  duration_ms: number;
+  dry_run: boolean;
+  as_of_date: string;
+}
+
+export interface BillingExecutionSummaryProps {
+  result: BillingRunResult;
+  onRunAgain?: () => void;
+  isLoading?: boolean;
+}
+
+export function BillingExecutionSummary({
+  result,
+  onRunAgain,
+  isLoading,
+}: BillingExecutionSummaryProps) {
+  return (
+    <div className="space-y-6" data-testid="billing-execution-summary">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-bold text-slate-900 flex items-center">
+          Execution Summary
+          {result.dry_run ? (
+            <span className="ml-2 text-xs bg-amber-100 text-amber-800 font-semibold px-2 py-0.5 rounded">
+              DRY RUN (Simulated)
+            </span>
+          ) : (
+            <span className="ml-2 text-xs bg-emerald-100 text-emerald-800 font-semibold px-2 py-0.5 rounded">
+              PRODUCTION COMMITTED
+            </span>
+          )}
+        </h3>
+        <span className="text-xs text-slate-500">Processed in {result.duration_ms} ms</span>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <Card className="border-emerald-100 bg-emerald-50/40">
+          <CardContent className="p-4">
+            <div className="text-xs font-semibold text-emerald-700 uppercase">Invoices Created</div>
+            <div className="text-3xl font-extrabold text-emerald-900 mt-1">{result.created}</div>
+            <p className="text-xs text-emerald-600 mt-1">Generated draft invoices</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-blue-100 bg-blue-50/40">
+          <CardContent className="p-4">
+            <div className="text-xs font-semibold text-blue-700 uppercase">Already Billed</div>
+            <div className="text-3xl font-extrabold text-blue-900 mt-1">{result.skipped_already_billed}</div>
+            <p className="text-xs text-blue-600 mt-1">Protected by UNIQUE constraint</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-slate-200 bg-slate-50">
+          <CardContent className="p-4">
+            <div className="text-xs font-semibold text-slate-600 uppercase">Not Due</div>
+            <div className="text-3xl font-extrabold text-slate-900 mt-1">{result.skipped_not_due}</div>
+            <p className="text-xs text-slate-500 mt-1">Next invoice date in future</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-rose-100 bg-rose-50/40">
+          <CardContent className="p-4">
+            <div className="text-xs font-semibold text-rose-700 uppercase">Failed Subscriptions</div>
+            <div className="text-3xl font-extrabold text-rose-900 mt-1">{result.failed?.length || 0}</div>
+            <p className="text-xs text-rose-600 mt-1">Isolated exceptions</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {result.remaining_due > 0 && (
+        <Card className="border-amber-200 bg-amber-50">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <div className="text-xs font-semibold text-amber-800 uppercase">Remaining Due Periods</div>
+              <div className="text-2xl font-bold text-amber-900 mt-0.5">{result.remaining_due} cycle(s) remaining</div>
+              <p className="text-xs text-amber-700 mt-0.5">
+                Batched under MAX_CATCHUP_PERIODS cap to bound request latency. Run billing again to process remaining cycles.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Acceptance Test Demonstration Card */}
+      <Card className="bg-slate-900 text-white">
+        <CardContent className="p-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <h4 className="text-base font-bold text-white">Judge Acceptance Test: Double Billing Prevention</h4>
+              <p className="text-xs text-slate-400 mt-1">
+                Click "Run Billing Again" immediately. The second run will detect all contracts are already billed and create <strong>0</strong> new invoices.
+              </p>
+            </div>
+            {onRunAgain && (
+              <Button
+                variant="primary"
+                className="bg-indigo-500 hover:bg-indigo-600 text-white"
+                onClick={onRunAgain}
+                isLoading={isLoading}
+                disabled={isLoading}
+              >
+                <RotateCw className="h-4 w-4 mr-1.5" /> Run Billing Again (Assert 0)
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Failed Items Table (if any) */}
+      {result.failed?.length > 0 && (
+        <Card className="border-rose-200">
+          <CardHeader>
+            <CardTitle className="text-rose-700 text-base">Exceptions Encountered</CardTitle>
+            <CardDescription>Isolated contract errors that did not abort the transaction batch</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="divide-y divide-slate-100 text-sm">
+              {result.failed.map((f: any, idx: number) => (
+                <div key={idx} className="py-2.5 flex justify-between">
+                  <span className="font-semibold text-slate-800">{f.subscription_number || f.subscription_id}</span>
+                  <span className="text-rose-600">{f.reason}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
 export function Billing() {
   const [result, setResult] = useState<any | null>(null);
   const queryClient = useQueryClient();
@@ -125,114 +261,11 @@ export function Billing() {
 
       {/* Result Metrics */}
       {result && (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-bold text-slate-900 flex items-center">
-              Execution Summary
-              {result.dry_run ? (
-                <span className="ml-2 text-xs bg-amber-100 text-amber-800 font-semibold px-2 py-0.5 rounded">
-                  DRY RUN (Simulated)
-                </span>
-              ) : (
-                <span className="ml-2 text-xs bg-emerald-100 text-emerald-800 font-semibold px-2 py-0.5 rounded">
-                  PRODUCTION COMMITTED
-                </span>
-              )}
-            </h3>
-            <span className="text-xs text-slate-500">Processed in {result.duration_ms} ms</span>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <Card className="border-emerald-100 bg-emerald-50/40">
-              <CardContent className="p-4">
-                <div className="text-xs font-semibold text-emerald-700 uppercase">Invoices Created</div>
-                <div className="text-3xl font-extrabold text-emerald-900 mt-1">{result.created}</div>
-                <p className="text-xs text-emerald-600 mt-1">Generated draft invoices</p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-blue-100 bg-blue-50/40">
-              <CardContent className="p-4">
-                <div className="text-xs font-semibold text-blue-700 uppercase">Already Billed</div>
-                <div className="text-3xl font-extrabold text-blue-900 mt-1">{result.skipped_already_billed}</div>
-                <p className="text-xs text-blue-600 mt-1">Protected by UNIQUE constraint</p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-slate-200 bg-slate-50">
-              <CardContent className="p-4">
-                <div className="text-xs font-semibold text-slate-600 uppercase">Not Due</div>
-                <div className="text-3xl font-extrabold text-slate-900 mt-1">{result.skipped_not_due}</div>
-                <p className="text-xs text-slate-500 mt-1">Next invoice date in future</p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-rose-100 bg-rose-50/40">
-              <CardContent className="p-4">
-                <div className="text-xs font-semibold text-rose-700 uppercase">Failed Subscriptions</div>
-                <div className="text-3xl font-extrabold text-rose-900 mt-1">{result.failed?.length || 0}</div>
-                <p className="text-xs text-rose-600 mt-1">Isolated exceptions</p>
-              </CardContent>
-            </Card>
-          </div>
-
-          {result.remaining_due > 0 && (
-            <Card className="border-amber-200 bg-amber-50">
-              <CardContent className="p-4 flex items-center justify-between">
-                <div>
-                  <div className="text-xs font-semibold text-amber-800 uppercase">Remaining Due Periods</div>
-                  <div className="text-2xl font-bold text-amber-900 mt-0.5">{result.remaining_due} cycle(s) remaining</div>
-                  <p className="text-xs text-amber-700 mt-0.5">
-                    Batched under MAX_CATCHUP_PERIODS cap to bound request latency. Run billing again to process remaining cycles.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Acceptance Test Demonstration Card */}
-          <Card className="bg-slate-900 text-white">
-            <CardContent className="p-6">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div>
-                  <h4 className="text-base font-bold text-white">Judge Acceptance Test: Double Billing Prevention</h4>
-                  <p className="text-xs text-slate-400 mt-1">
-                    Click "Run Billing Again" immediately. The second run will detect all contracts are already billed and create <strong>0</strong> new invoices.
-                  </p>
-                </div>
-                <Button
-                  variant="primary"
-                  className="bg-indigo-500 hover:bg-indigo-600 text-white"
-                  onClick={handleSubmit((data) => onExecute(data, false))}
-                  isLoading={billingMutation.isPending}
-                  disabled={billingMutation.isPending || isSubmitting}
-                >
-                  <RotateCw className="h-4 w-4 mr-1.5" /> Run Billing Again (Assert 0)
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Failed Items Table (if any) */}
-          {result.failed?.length > 0 && (
-            <Card className="border-rose-200">
-              <CardHeader>
-                <CardTitle className="text-rose-700 text-base">Exceptions Encountered</CardTitle>
-                <CardDescription>Isolated contract errors that did not abort the transaction batch</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="divide-y divide-slate-100 text-sm">
-                  {result.failed.map((f: any, idx: number) => (
-                    <div key={idx} className="py-2.5 flex justify-between">
-                      <span className="font-semibold text-slate-800">{f.subscription_number}</span>
-                      <span className="text-rose-600">{f.reason}</span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
+        <BillingExecutionSummary
+          result={result}
+          onRunAgain={handleSubmit((data) => onExecute(data, false))}
+          isLoading={billingMutation.isPending || isSubmitting}
+        />
       )}
     </div>
   );

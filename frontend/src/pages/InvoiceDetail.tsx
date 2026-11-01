@@ -1,18 +1,14 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { api } from "@/api/client";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { useToast } from "@/context/ToastContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
-import { Dialog } from "@/components/ui/Dialog";
-import { createPaymentSchema, PaymentFormData } from "@/lib/schemas";
-import { handleServerErrors } from "@/lib/form-errors";
+import { RecordPaymentDialog } from "@/components/invoices/RecordPaymentDialog";
+import { PaymentFormData } from "@/lib/schemas";
 import {
   ArrowLeft,
   Printer,
@@ -36,23 +32,6 @@ export function InvoiceDetail() {
 
   const inv = invQuery.data;
   const balanceDue = inv ? Math.max(0, inv.total - inv.amount_paid) : 0;
-  const todayStr = new Date().toISOString().split("T")[0];
-
-  const paymentForm = useForm<PaymentFormData>({
-    resolver: zodResolver(createPaymentSchema(balanceDue)),
-    defaultValues: {
-      method: "upi",
-      amount: balanceDue,
-      payment_date: todayStr,
-      reference: "",
-    },
-  });
-
-  useEffect(() => {
-    if (balanceDue > 0) {
-      paymentForm.setValue("amount", balanceDue);
-    }
-  }, [balanceDue, paymentForm]);
 
   const confirmMutation = useMutation({
     mutationFn: () => api.post(`/invoices/${id}/confirm`),
@@ -97,10 +76,8 @@ export function InvoiceDetail() {
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
       queryClient.invalidateQueries({ queryKey: ["reports"] });
       toast.success("Payment recorded successfully!");
-      paymentForm.reset();
     },
-    onError: (err: any) =>
-      handleServerErrors(err, paymentForm.setError, toast, "Failed to record payment"),
+    onError: (err: any) => toast.error(err.message || "Failed to record payment"),
   });
 
   if (invQuery.isLoading) {
@@ -112,12 +89,6 @@ export function InvoiceDetail() {
   }
 
   const handleOpenPayment = () => {
-    paymentForm.reset({
-      method: "upi",
-      amount: balanceDue,
-      payment_date: todayStr,
-      reference: "",
-    });
     setPaymentModalOpen(true);
   };
 
@@ -363,77 +334,15 @@ export function InvoiceDetail() {
       </Card>
 
       {/* Record Payment Dialog */}
-      <Dialog
+      <RecordPaymentDialog
         open={paymentModalOpen}
         onOpenChange={setPaymentModalOpen}
-        title={`Record Payment for ${inv.number}`}
-        description="Enter payment settlement details with idempotency verification"
-      >
-        <form
-          onSubmit={paymentForm.handleSubmit((data) => recordPaymentMutation.mutate(data))}
-          className="space-y-4 pt-2"
-          noValidate
-        >
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Payment Method *</label>
-            <select
-              {...paymentForm.register("method")}
-              className="w-full h-11 px-3 rounded-lg border border-slate-300 bg-white text-sm"
-            >
-              <option value="upi">UPI (Instant Transfer)</option>
-              <option value="card">Credit / Debit Card</option>
-              <option value="bank_transfer">Bank Transfer (NEFT/RTGS)</option>
-              <option value="cheque">Cheque</option>
-              <option value="cash">Cash</option>
-            </select>
-            {paymentForm.formState.errors.method?.message && (
-              <p className="mt-1 text-xs text-rose-600">{paymentForm.formState.errors.method.message}</p>
-            )}
-          </div>
-
-          <Input
-            label="Payment Amount"
-            type="number"
-            step="0.01"
-            min="0.01"
-            max={balanceDue}
-            required
-            helperText={`Max balance due: ${formatCurrency(balanceDue, inv.currency)}`}
-            error={paymentForm.formState.errors.amount?.message}
-            {...paymentForm.register("amount", { valueAsNumber: true })}
-          />
-
-          <Input
-            label="Payment Date"
-            type="date"
-            required
-            max={todayStr}
-            helperText="Cannot be in the future"
-            error={paymentForm.formState.errors.payment_date?.message}
-            {...paymentForm.register("payment_date")}
-          />
-
-          <Input
-            label="Reference / Transaction Note"
-            placeholder="UTR or Cheque number"
-            error={paymentForm.formState.errors.reference?.message}
-            {...paymentForm.register("reference")}
-          />
-
-          <div className="flex justify-end space-x-2 pt-4">
-            <Button variant="outline" type="button" onClick={() => setPaymentModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              isLoading={recordPaymentMutation.isPending || paymentForm.formState.isSubmitting}
-              disabled={recordPaymentMutation.isPending || paymentForm.formState.isSubmitting}
-            >
-              Record Settlement
-            </Button>
-          </div>
-        </form>
-      </Dialog>
+        invoiceNumber={inv.number}
+        balanceDue={balanceDue}
+        currency={inv.currency}
+        onSubmit={(data) => recordPaymentMutation.mutate(data)}
+        isLoading={recordPaymentMutation.isPending}
+      />
     </div>
   );
 }
