@@ -611,6 +611,35 @@ def seed_database(small: bool = True, reset: bool = False) -> bool:
                     version=1,
                 )
                 db.add(draft_inv)
+                db.flush()
+
+                # Add Plan Fee invoice line
+                db.add(InvoiceLine(
+                    invoice_id=draft_inv.id,
+                    source="plan_fee",
+                    description=f"{s.plan.name} - Base Fee",
+                    quantity=1,
+                    unit_price=s.plan.price,
+                    discount_amount=Decimal("0.00"),
+                    tax_id=tax_gst_18.id,
+                    tax_amount=round_money(s.plan.price * Decimal("0.18")),
+                    line_total=round_money(s.plan.price * Decimal("1.18")),
+                ))
+
+                # Add product lines
+                for sl in s.lines:
+                    db.add(InvoiceLine(
+                        invoice_id=draft_inv.id,
+                        source="product",
+                        product_id=sl.product_id,
+                        description=sl.description,
+                        quantity=sl.quantity,
+                        unit_price=sl.unit_price,
+                        discount_amount=Decimal("0.00"),
+                        tax_id=sl.tax_id,
+                        tax_amount=round_money(sl.amount * Decimal("0.18")),
+                        line_total=round_money(sl.amount * Decimal("1.18")),
+                    ))
                 inv_idx += 1
 
         # UPDATE number_counters so that SUB.next_value = (highest numeric suffix among subscriptions.number) + 1
