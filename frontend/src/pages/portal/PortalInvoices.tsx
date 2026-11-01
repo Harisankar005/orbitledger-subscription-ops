@@ -75,69 +75,92 @@ export function PortalInvoices() {
         </div>
       )}
 
-      {/* Invoices Table */}
+      {/* Invoices Table & Mobile Cards */}
       <Card className="overflow-hidden border border-slate-200 bg-white">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-200 text-sm">
-            <thead className="bg-slate-50">
-              <tr>
-                <th className="px-6 py-3 text-left font-semibold text-slate-600">Invoice</th>
-                <th className="px-6 py-3 text-left font-semibold text-slate-600">Period</th>
-                <th className="px-6 py-3 text-left font-semibold text-slate-600">Due Date</th>
-                <th className="px-6 py-3 text-right font-semibold text-slate-600">Total</th>
-                <th className="px-6 py-3 text-right font-semibold text-slate-600">Paid</th>
-                <th className="px-6 py-3 text-left font-semibold text-slate-600">Status</th>
-                <th className="px-6 py-3 text-right font-semibold text-slate-600">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200">
-              {isLoading ? (
-                <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-slate-400">
-                    Loading invoices...
-                  </td>
-                </tr>
-              ) : !data || data.items.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-slate-400">
-                    No invoices generated yet.
-                  </td>
-                </tr>
-              ) : (
-                data.items.map((inv) => (
-                  <tr key={inv.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-6 py-4 font-mono font-semibold text-slate-900">
-                      {inv.number}
-                    </td>
-                    <td className="px-6 py-4 text-xs text-slate-600">
-                      {formatDate(inv.period_start)} to {formatDate(inv.period_end)}
-                    </td>
-                    <td className="px-6 py-4 text-xs text-slate-700 font-medium">
-                      {formatDate(inv.due_date)}
-                    </td>
-                    <td className="px-6 py-4 text-right font-semibold text-slate-900">
-                      {formatCurrency(inv.total, inv.currency)}
-                    </td>
-                    <td className="px-6 py-4 text-right text-xs text-slate-600 font-mono">
-                      {formatCurrency(inv.amount_paid, inv.currency)}
-                    </td>
-                    <td className="px-6 py-4">{getPaymentStatusBadge(inv.payment_status)}</td>
-                    <td className="px-6 py-4 text-right">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => window.open(`/api/portal/invoices/${inv.id}/print`, "_blank")}
-                      >
-                        <Printer className="h-3.5 w-3.5 mr-1" />
-                        Print
-                      </Button>
-                    </td>
+        {isLoading ? (
+          <div className="px-6 py-12 text-center text-slate-400">Loading invoices...</div>
+        ) : !data || data.items.length === 0 ? (
+          <div className="px-6 py-12 text-center text-slate-400">No invoices generated yet.</div>
+        ) : (
+          <>
+            {/* Desktop Table */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="min-w-full divide-y divide-slate-200 text-sm">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left font-semibold text-slate-600">Invoice</th>
+                    <th className="px-6 py-3 text-left font-semibold text-slate-600">Period</th>
+                    <th className="px-6 py-3 text-left font-semibold text-slate-600">Due Date</th>
+                    <th className="px-6 py-3 text-right font-semibold text-slate-600">Total</th>
+                    <th className="px-6 py-3 text-right font-semibold text-slate-600">Paid</th>
+                    <th className="px-6 py-3 text-left font-semibold text-slate-600">Status</th>
+                    <th className="px-6 py-3 text-right font-semibold text-slate-600">Action</th>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {data.items.map((inv) => (
+                    <tr key={inv.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-6 py-4 font-mono font-semibold text-slate-900">{inv.number}</td>
+                      <td className="px-6 py-4 text-xs text-slate-600">
+                        {formatDate(inv.period_start)} to {formatDate(inv.period_end)}
+                      </td>
+                      <td className="px-6 py-4 text-xs text-slate-700 font-medium">{formatDate(inv.due_date)}</td>
+                      <td className="px-6 py-4 text-right font-semibold text-slate-900">
+                        {formatCurrency(inv.total, inv.currency)}
+                      </td>
+                      <td className="px-6 py-4 text-right text-xs text-slate-600 font-mono">
+                        {formatCurrency(inv.amount_paid, inv.currency)}
+                      </td>
+                      <td className="px-6 py-4">{getPaymentStatusBadge(inv.payment_status)}</td>
+                      <td className="px-6 py-4 text-right">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open(`/api/portal/invoices/${inv.id}/print`, "_blank")}
+                        >
+                          <Printer className="h-3.5 w-3.5 mr-1" />
+                          Print
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Cards (<640px) */}
+            <div className="sm:hidden divide-y divide-slate-100 p-4 space-y-3">
+              {data.items.map((inv) => (
+                <div key={inv.id} className="pt-3 first:pt-0 space-y-2">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <span className="font-mono font-bold text-slate-900 text-sm">{inv.number}</span>
+                      <div className="text-xs text-slate-500">
+                        {formatDate(inv.period_start)} - {formatDate(inv.period_end)}
+                      </div>
+                    </div>
+                    {getPaymentStatusBadge(inv.payment_status)}
+                  </div>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-500">Due: {formatDate(inv.due_date)}</span>
+                    <span className="font-bold text-slate-900 text-sm">
+                      {formatCurrency(inv.total, inv.currency)}
+                    </span>
+                  </div>
+                  <div className="flex justify-end pt-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => window.open(`/api/portal/invoices/${inv.id}/print`, "_blank")}
+                    >
+                      <Printer className="h-3.5 w-3.5 mr-1" /> Print PDF
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
       </Card>
     </div>
   );

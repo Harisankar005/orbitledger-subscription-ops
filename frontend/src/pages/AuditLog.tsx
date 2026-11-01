@@ -124,80 +124,105 @@ export function AuditLog() {
         </div>
       </Card>
 
-      {/* Audit Log Table */}
+      {/* Audit Log Table & Mobile Cards */}
       <Card className="overflow-hidden border border-slate-200 bg-white">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-200 text-sm">
-            <thead className="bg-slate-50">
-              <tr>
-                <th className="px-6 py-3 text-left font-semibold text-slate-600">Timestamp</th>
-                <th className="px-6 py-3 text-left font-semibold text-slate-600">Actor</th>
-                <th className="px-6 py-3 text-left font-semibold text-slate-600">Action</th>
-                <th className="px-6 py-3 text-left font-semibold text-slate-600">Entity</th>
-                <th className="px-6 py-3 text-left font-semibold text-slate-600">Request ID</th>
-                <th className="px-6 py-3 text-right font-semibold text-slate-600">State Diff</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200">
-              {isLoading ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
-                    Loading audit trail...
-                  </td>
-                </tr>
-              ) : !data || data.items.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
-                    No audit records found.
-                  </td>
-                </tr>
-              ) : (
-                data.items.map((entry) => (
-                  <tr key={entry.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-6 py-4 text-xs font-mono text-slate-600 whitespace-nowrap">
-                      {formatDate(entry.at)}
-                    </td>
-                    <td className="px-6 py-4 text-xs font-mono text-slate-700">
-                      {entry.actor_id ? `User #${entry.actor_id}` : "System Worker"}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-medium border ${getActionBadgeColor(
-                          entry.action
-                        )}`}
-                      >
-                        {entry.action}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-xs">
-                      <span className="font-semibold text-slate-800 capitalize">
-                        {entry.entity_type}
-                      </span>
-                      {entry.entity_id && (
-                        <span className="text-slate-400 font-mono ml-1.5">#{entry.entity_id}</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-xs font-mono text-slate-400 max-w-[120px] truncate">
-                      {entry.request_id || "N/A"}
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      {(entry.before || entry.after) && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setSelectedEntry(entry)}
-                        >
-                          <Eye className="h-3.5 w-3.5 mr-1" />
-                          View Diff
-                        </Button>
-                      )}
-                    </td>
+        {isLoading ? (
+          <div className="px-6 py-12 text-center text-slate-400">Loading audit trail...</div>
+        ) : !data || data.items.length === 0 ? (
+          <div className="px-6 py-12 text-center text-slate-400">No audit records found.</div>
+        ) : (
+          <>
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="min-w-full divide-y divide-slate-200 text-sm">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left font-semibold text-slate-600">Timestamp</th>
+                    <th className="px-6 py-3 text-left font-semibold text-slate-600">Actor</th>
+                    <th className="px-6 py-3 text-left font-semibold text-slate-600">Action</th>
+                    <th className="px-6 py-3 text-left font-semibold text-slate-600">Entity</th>
+                    <th className="px-6 py-3 text-left font-semibold text-slate-600">Request ID</th>
+                    <th className="px-6 py-3 text-right font-semibold text-slate-600">State Diff</th>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {data.items.map((entry) => (
+                    <tr key={entry.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-6 py-4 text-xs font-mono text-slate-600 whitespace-nowrap">
+                        {formatDate(entry.at)}
+                      </td>
+                      <td className="px-6 py-4 text-xs font-mono text-slate-700">
+                        {entry.actor_id ? `User #${entry.actor_id}` : "System Worker"}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-medium border ${getActionBadgeColor(
+                            entry.action
+                          )}`}
+                        >
+                          {entry.action}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-xs">
+                        <span className="font-semibold text-slate-800 capitalize">
+                          {entry.entity_type}
+                        </span>
+                        {entry.entity_id && (
+                          <span className="text-slate-400 font-mono ml-1.5">#{entry.entity_id}</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-xs font-mono text-slate-400 max-w-[120px] truncate">
+                        {entry.request_id || "N/A"}
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        {(entry.before || entry.after) && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setSelectedEntry(entry)}
+                          >
+                            <Eye className="h-3.5 w-3.5 mr-1" />
+                            View Diff
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Cards View (<640px) */}
+            <div className="sm:hidden divide-y divide-slate-100 p-4 space-y-3">
+              {data.items.map((entry) => (
+                <div key={entry.id} className="pt-3 first:pt-0 space-y-2">
+                  <div className="flex justify-between items-start">
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-medium border ${getActionBadgeColor(
+                        entry.action
+                      )}`}
+                    >
+                      {entry.action}
+                    </span>
+                    <span className="text-xs font-mono text-slate-500">{formatDate(entry.at)}</span>
+                  </div>
+                  <div className="text-xs text-slate-700">
+                    <span className="font-semibold capitalize">{entry.entity_type}</span>
+                    {entry.entity_id && <span className="text-slate-400 font-mono ml-1">#{entry.entity_id}</span>}
+                    <span className="text-slate-400 mx-1.5">•</span>
+                    <span>{entry.actor_id ? `User #${entry.actor_id}` : "System Worker"}</span>
+                  </div>
+                  {(entry.before || entry.after) && (
+                    <div className="flex justify-end pt-1">
+                      <Button variant="ghost" size="sm" onClick={() => setSelectedEntry(entry)}>
+                        <Eye className="h-3.5 w-3.5 mr-1" /> View Diff
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
 
         {/* Pagination */}
         {data && data.total > pageSize && (

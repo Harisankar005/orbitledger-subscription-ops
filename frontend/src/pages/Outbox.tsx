@@ -146,89 +146,112 @@ export function Outbox() {
         </Button>
       </div>
 
-      {/* Outbox Table */}
+      {/* Outbox Table & Mobile Cards */}
       <Card className="overflow-hidden border border-slate-200 bg-white">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-200 text-sm">
-            <thead className="bg-slate-50">
-              <tr>
-                <th className="px-6 py-3 text-left font-semibold text-slate-600">Recipient</th>
-                <th className="px-6 py-3 text-left font-semibold text-slate-600">Subject</th>
-                <th className="px-6 py-3 text-left font-semibold text-slate-600">Kind</th>
-                <th className="px-6 py-3 text-left font-semibold text-slate-600">Status</th>
-                <th className="px-6 py-3 text-left font-semibold text-slate-600">Created / Sent</th>
-                <th className="px-6 py-3 text-right font-semibold text-slate-600">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200">
-              {isLoading ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
-                    Loading outbox messages...
-                  </td>
-                </tr>
-              ) : !data || data.items.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
-                    No emails in queue.
-                  </td>
-                </tr>
-              ) : (
-                data.items.map((msg) => (
-                  <tr key={msg.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-6 py-4 font-mono text-xs text-slate-800">
-                      {msg.to_email}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="font-semibold text-slate-900">{msg.subject}</div>
-                      {msg.last_error && (
-                        <div className="text-xs text-rose-600 mt-1 font-mono">
-                          Error: {msg.last_error}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="capitalize px-2 py-0.5 rounded text-xs font-mono bg-slate-100 text-slate-700">
-                        {msg.kind.replace("_", " ")}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">{getStatusBadge(msg.status)}</td>
-                    <td className="px-6 py-4 text-xs text-slate-500">
-                      <div>Created: {formatDate(msg.created_at)}</div>
-                      {msg.sent_at && (
-                        <div className="text-emerald-600 font-medium">
-                          Sent: {formatDate(msg.sent_at)}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end space-x-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setPreviewItem(msg)}
-                        >
-                          <Eye className="h-3.5 w-3.5 mr-1" />
-                          View
-                        </Button>
-                        {msg.status !== "sent" && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={retryMutation.isPending}
-                            onClick={() => retryMutation.mutate(msg.id)}
-                          >
-                            Retry
-                          </Button>
-                        )}
-                      </div>
-                    </td>
+        {isLoading ? (
+          <div className="px-6 py-12 text-center text-slate-400">Loading outbox messages...</div>
+        ) : !data || data.items.length === 0 ? (
+          <div className="px-6 py-12 text-center text-slate-400">No emails in queue.</div>
+        ) : (
+          <>
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="min-w-full divide-y divide-slate-200 text-sm">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left font-semibold text-slate-600">Recipient</th>
+                    <th className="px-6 py-3 text-left font-semibold text-slate-600">Subject</th>
+                    <th className="px-6 py-3 text-left font-semibold text-slate-600">Kind</th>
+                    <th className="px-6 py-3 text-left font-semibold text-slate-600">Status</th>
+                    <th className="px-6 py-3 text-left font-semibold text-slate-600">Created / Sent</th>
+                    <th className="px-6 py-3 text-right font-semibold text-slate-600">Action</th>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {data.items.map((msg) => (
+                    <tr key={msg.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-6 py-4 font-mono text-xs text-slate-800">{msg.to_email}</td>
+                      <td className="px-6 py-4">
+                        <div className="font-semibold text-slate-900">{msg.subject}</div>
+                        {msg.last_error && (
+                          <div className="text-xs text-rose-600 mt-1 font-mono">
+                            Error: {msg.last_error}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="capitalize px-2 py-0.5 rounded text-xs font-mono bg-slate-100 text-slate-700">
+                          {msg.kind.replace("_", " ")}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">{getStatusBadge(msg.status)}</td>
+                      <td className="px-6 py-4 text-xs text-slate-500">
+                        <div>Created: {formatDate(msg.created_at)}</div>
+                        {msg.sent_at && (
+                          <div className="text-emerald-600 font-medium">
+                            Sent: {formatDate(msg.sent_at)}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end space-x-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setPreviewItem(msg)}
+                          >
+                            <Eye className="h-3.5 w-3.5 mr-1" />
+                            View
+                          </Button>
+                          {msg.status !== "sent" && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={retryMutation.isPending}
+                              onClick={() => retryMutation.mutate(msg.id)}
+                            >
+                              Retry
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Cards View (<640px) */}
+            <div className="sm:hidden divide-y divide-slate-100 p-4 space-y-3">
+              {data.items.map((msg) => (
+                <div key={msg.id} className="pt-3 first:pt-0 space-y-2">
+                  <div className="flex justify-between items-start">
+                    <span className="font-mono text-xs font-semibold text-slate-800">{msg.to_email}</span>
+                    {getStatusBadge(msg.status)}
+                  </div>
+                  <div className="font-semibold text-slate-900 text-sm">{msg.subject}</div>
+                  <div className="text-xs text-slate-500">
+                    Created: {formatDate(msg.created_at)}
+                  </div>
+                  <div className="flex justify-end space-x-2 pt-1">
+                    <Button variant="ghost" size="sm" onClick={() => setPreviewItem(msg)}>
+                      <Eye className="h-3.5 w-3.5 mr-1" /> View
+                    </Button>
+                    {msg.status !== "sent" && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={retryMutation.isPending}
+                        onClick={() => retryMutation.mutate(msg.id)}
+                      >
+                        Retry
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
       </Card>
 
       {/* Email Body Preview Modal */}

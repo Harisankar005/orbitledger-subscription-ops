@@ -1,5 +1,6 @@
 from typing import Any, Dict, Optional
 
+from dateutil.relativedelta import relativedelta
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -185,4 +186,28 @@ def demo_time_travel(
         "new_date": new_date.isoformat(),
         "months_advanced": req.months,
         "billing_result": billing_result.model_dump(),
+    }
+
+
+@router.post("/demo/reset-clock")
+def demo_reset_clock(
+    current_user: User = Depends(require_roles("admin")),
+):
+    """Admin-only: Reset simulated clock offset to real-world clock."""
+    if not settings.DEMO_MODE:
+        raise ForbiddenError("Demo mode is disabled in production")
+    real_today = clock.reset()
+    return {"current_date": real_today.isoformat(), "is_simulated": False}
+
+
+@router.get("/demo/clock-status")
+def demo_clock_status(
+    current_user: User = Depends(require_roles("admin", "staff")),
+):
+    """Get current simulated or real date and whether clock is offset."""
+    is_simulated = clock.offset_delta != relativedelta()
+    return {
+        "current_date": clock.today().isoformat(),
+        "is_simulated": is_simulated,
+        "demo_mode": settings.DEMO_MODE,
     }

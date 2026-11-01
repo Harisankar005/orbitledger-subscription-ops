@@ -1,10 +1,12 @@
 import React, { useState } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/features/auth/AuthContext";
 import { api } from "@/api/client";
 import { useToast } from "@/context/ToastContext";
 import { LiveIndicator } from "@/components/ui/LiveIndicator";
 import { Button } from "@/components/ui/Button";
+import { Dialog } from "@/components/ui/Dialog";
 import {
   LayoutDashboard,
   Repeat,
@@ -21,27 +23,56 @@ import {
   FastForward,
   LogOut,
   Package,
+  Clock,
 } from "lucide-react";
 
 export function Shell() {
   const { user, logout, hasRole } = useAuth();
   const toast = useToast();
+  const queryClient = useQueryClient();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [timeTraveling, setTimeTraveling] = useState(false);
+  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+  const [resettingClock, setResettingClock] = useState(false);
   const navigate = useNavigate();
 
-  const handleTimeTravel = async () => {
+  const clockQuery = useQuery({
+    queryKey: ["clock-status"],
+    queryFn: () => api.get<{ current_date: string; is_simulated: boolean; demo_mode: boolean }>("/demo/clock-status"),
+    enabled: hasRole("admin", "staff"),
+  });
+
+  const handleTimeTravelConfirm = async () => {
     setTimeTraveling(true);
     try {
       const res = await api.post<{ new_date: string; billing_result: { created: number } }>("/demo/advance-clock", {
         months: 1,
       });
-      toast.success(`Simulated date advanced to ${res.new_date}! Billing engine generated ${res.billing_result.created} invoices.`);
+      setConfirmModalOpen(false);
+      toast.success(`Simulated date advanced to ${res.new_date}! Billing engine generated ${res.billing_result.created} invoice(s).`);
+      queryClient.invalidateQueries({ queryKey: ["clock-status"] });
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["subscriptions"] });
+      queryClient.invalidateQueries({ queryKey: ["reports"] });
       window.location.reload();
     } catch (err: any) {
       toast.error(`Time-travel error: ${err.message || "Failed"}`);
     } finally {
       setTimeTraveling(false);
+    }
+  };
+
+  const handleResetClock = async () => {
+    setResettingClock(true);
+    try {
+      const res = await api.post<{ current_date: string; is_simulated: boolean }>("/demo/reset-clock");
+      toast.success(`Clock reset to real-world date: ${res.current_date}`);
+      queryClient.invalidateQueries({ queryKey: ["clock-status"] });
+      window.location.reload();
+    } catch (err: any) {
+      toast.error(`Clock reset error: ${err.message || "Failed"}`);
+    } finally {
+      setResettingClock(false);
     }
   };
 
@@ -174,12 +205,30 @@ export function Shell() {
             {/* Live SSE update badge */}
             <LiveIndicator />
 
+            {/* Simulated Date Indicator in Top Bar */}
+            {clockQuery.data?.is_simulated && (
+              <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold">
+                <Clock className="h-3.5 w-3.5 text-amber-600 animate-pulse" />
+                <span>Simulated: {clockQuery.data.current_date}</span>
+                {hasRole("admin") && (
+                  <button
+                    onClick={handleResetClock}
+                    disabled={resettingClock}
+                    title="Reset clock to actual date"
+                    className="ml-1 text-amber-700 hover:text-amber-950 underline text-[11px] font-bold cursor-pointer"
+                  >
+                    Reset
+                  </button>
+                )}
+              </div>
+            )}
+
             {/* Time travel button (Demo mode, admin only) */}
-            {hasRole("admin") && (
+            {hasRole("admin") && clockQuery.data?.demo_mode && (
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handleTimeTravel}
+                onClick={() => setConfirmModalOpen(true)}
                 isLoading={timeTraveling}
                 title="Advance injected Clock by 1 month and run billing"
                 className="hidden lg:inline-flex text-indigo-700 border-indigo-200 bg-indigo-50 hover:bg-indigo-100"
@@ -243,6 +292,33 @@ export function Shell() {
           </div>
         </main>
       </div>
+
+      {/* Time Travel Confirmation Dialog */}
+      <Dialog
+        open={confirmModalOpen}
+        onOpenChange={setConfirmModalOpen}
+        title="Confirm Simulated Time Travel"
+        description="Advance the platform clock by 1 month and trigger automated contract billing."
+      >
+        <div className="space-y-4 pt-2">
+          <p className="text-sm text-slate-600">
+            Current system date is <strong>{clockQuery.data?.current_date || "today"}</strong>. Advancing the simulated clock by 1 month will trigger an automated billing cycle for all contracts due in this period and generate draft invoices.
+          </p>
+          <div className="flex justify-end space-x-2 pt-2">
+            <Button variant="outline" type="button" onClick={() => setConfirmModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleTimeTravelConfirm}
+              isLoading={timeTraveling}
+              disabled={timeTraveling}
+            >
+              Advance & Run Billing
+            </Button>
+          </div>
+        </div>
+      </Dialog>
     </div>
   );
 }
