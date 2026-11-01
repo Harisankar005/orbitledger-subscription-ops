@@ -2,6 +2,7 @@ import asyncio
 from decimal import Decimal
 from typing import Optional
 
+from sqlalchemy import update
 from sqlalchemy.orm import Session
 
 from app.clock import clock
@@ -71,11 +72,36 @@ def record_payment(
     )
     db.add(payment)
 
-    # Update invoice state
-    inv.amount_paid = round_money(inv.amount_paid + amount)
+    # Update invoice state atomically with optimistic concurrency control
+    new_amount_paid = round_money(inv.amount_paid + amount)
+    new_status = "paid" if new_amount_paid >= inv.total else "confirmed"
+
+    stmt = (
+        update(Invoice)
+        .where(
+            Invoice.id == inv.id,
+            Invoice.version == inv.version,
+            Invoice.status == "confirmed",
+            Invoice.amount_paid + amount <= Invoice.total,
+        )
+        .values(
+            amount_paid=new_amount_paid,
+            status=new_status,
+            version=Invoice.version + 1,
+        )
+    )
+    res = db.execute(stmt)
+    rowcount = getattr(res, "rowcount", -1)
+    if rowcount == 0:
+        db.rollback()
+        raise ConflictError(
+            "Concurrent payment conflict detected or balance exceeded",
+            code="INVOICE_PAYMENT_CONFLICT",
+        )
+
+    inv.amount_paid = new_amount_paid
+    inv.status = new_status
     inv.version += 1
-    if inv.amount_paid >= inv.total:
-        inv.status = "paid"
 
     log_audit(
         db=db,

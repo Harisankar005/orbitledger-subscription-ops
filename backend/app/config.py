@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     EMBEDDED_WORKER: bool = True
     DEMO_MODE: bool = True
     ALLOW_PRODUCTION_DEMO_OVERRIDE: bool = False
+    MAX_CATCHUP_PERIODS: int = 12
 
     # Cookie security settings
     SECURE_COOKIES: Optional[bool] = None

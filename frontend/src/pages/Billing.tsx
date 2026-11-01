@@ -176,6 +176,20 @@ export function Billing() {
             </Card>
           </div>
 
+          {result.remaining_due > 0 && (
+            <Card className="border-amber-200 bg-amber-50">
+              <CardContent className="p-4 flex items-center justify-between">
+                <div>
+                  <div className="text-xs font-semibold text-amber-800 uppercase">Remaining Due Periods</div>
+                  <div className="text-2xl font-bold text-amber-900 mt-0.5">{result.remaining_due} cycle(s) remaining</div>
+                  <p className="text-xs text-amber-700 mt-0.5">
+                    Batched under MAX_CATCHUP_PERIODS cap to bound request latency. Run billing again to process remaining cycles.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Acceptance Test Demonstration Card */}
           <Card className="bg-slate-900 text-white">
             <CardContent className="p-6">

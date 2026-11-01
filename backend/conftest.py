@@ -84,6 +84,6 @@ atexit.register(_cleanup)
 def isolated_test_database():
     """Seed the isolated database once for the entire test session."""
     from app.seed import seed_database
-    seed_database(small=True)
+    seed_database(small=True, reset=True)
     yield
     _cleanup()

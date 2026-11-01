@@ -19,6 +19,7 @@ class BillingRunResponse(BaseModel):
     created: int
     skipped_already_billed: int
     skipped_not_due: int
+    remaining_due: int = 0
     failed: List[BillingRunFailedItem] = []
     duration_ms: int
     dry_run: bool

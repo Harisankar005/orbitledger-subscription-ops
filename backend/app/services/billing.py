@@ -8,6 +8,7 @@ from dateutil.relativedelta import relativedelta
 from sqlalchemy.exc import IntegrityError
 
 from app.clock import clock
+from app.config import settings
 from app.db import SessionLocal
 from app.events import broadcaster
 from app.models.billing import (
@@ -25,7 +26,11 @@ from app.services.discount import (
     try_claim_discount_usage,
 )
 from app.services.numbering import generate_next_number
-from app.services.tax import calculate_tax_amount, round_money
+from app.services.tax import (
+    calculate_tax_amount,
+    compute_prorated_discount_shares,
+    round_money,
+)
 
 
 def get_period_delta(billing_period: str, count: int = 1) -> relativedelta:
@@ -58,6 +63,7 @@ def run_billing_engine(
     created_count = 0
     skipped_already_billed = 0
     skipped_not_due = 0
+    remaining_due = 0
     failed_items: List[BillingRunFailedItem] = []
 
     with SessionLocal() as db_rules:
@@ -98,8 +104,20 @@ def run_billing_engine(
                 continue
 
             try:
+                billed_for_sub = 0
                 # Catch up missed periods
                 while sub.next_invoice_date <= target_date and sub.next_invoice_date <= sub.expiry_date:
+                    if billed_for_sub >= settings.MAX_CATCHUP_PERIODS:
+                        # Cap reached: count remaining periods that stay due
+                        anchor = sub.billing_anchor
+                        period_unit = sub.plan.billing_period
+                        periods = sub.periods_billed
+                        curr_due = sub.next_invoice_date
+                        while curr_due <= target_date and curr_due <= sub.expiry_date:
+                            remaining_due += 1
+                            periods += 1
+                            curr_due = anchor + get_period_delta(period_unit, periods)
+                        break
                     anchor = sub.billing_anchor
                     periods_billed = sub.periods_billed
                     period_unit = sub.plan.billing_period
@@ -126,40 +144,26 @@ def run_billing_engine(
 
                     if dry_run:
                         created_count += 1
+                        billed_for_sub += 1
                         sub.periods_billed += 1
                         sub.next_invoice_date = anchor + get_period_delta(period_unit, sub.periods_billed)
                         continue
 
                     # Build invoice lines
-                    invoice_lines_to_add: List[InvoiceLine] = []
                     applied_discounts_to_add: List[AppliedDiscount] = []
                     subtotal = Decimal("0.00")
-                    discount_total = Decimal("0.00")
-                    tax_total = Decimal("0.00")
+                    line_discount_total = Decimal("0.00")
 
                     # 1. Plan Base Fee Line Item (Decision D-001)
                     plan_tax = sub.plan.default_tax
                     plan_tax_id = plan_tax.id if plan_tax else None
-                    plan_tax_amount = calculate_tax_amount(plan_tax, sub.plan.price, 1)
-                    plan_line_total = sub.plan.price + plan_tax_amount
-
-                    plan_line = InvoiceLine(
-                        source="plan_fee",
-                        product_id=None,
-                        description=f"{sub.plan.name} - Recurring Base Fee",
-                        quantity=1,
-                        unit_price=sub.plan.price,
-                        discount_amount=Decimal("0.00"),
-                        tax_id=plan_tax_id,
-                        tax_amount=plan_tax_amount,
-                        line_total=round_money(plan_line_total),
-                    )
-                    invoice_lines_to_add.append(plan_line)
-                    subtotal += sub.plan.price
-                    tax_total += plan_tax_amount
+                    plan_gross = sub.plan.price
+                    subtotal += plan_gross
+                    plan_net = plan_gross
 
                     # 2. Product & Addon Lines from Subscription
                     total_product_quantity = 0
+                    prod_line_data = []
                     for s_line in sub.lines:
                         total_product_quantity += s_line.quantity
                         subtotal += s_line.amount
@@ -185,28 +189,12 @@ def run_billing_engine(
                                 )
                                 applied_discounts_to_add.append(applied_disc)
 
-                        discount_total += line_disc_amount
-                        taxable_amount = s_line.amount - line_disc_amount
-                        tax = s_line.tax
-                        line_tax_amt = calculate_tax_amount(tax, taxable_amount, s_line.quantity)
-                        tax_total += line_tax_amt
-
-                        line_total = taxable_amount + line_tax_amt
-                        inv_line = InvoiceLine(
-                            source="product",
-                            product_id=s_line.product_id,
-                            description=s_line.description,
-                            quantity=s_line.quantity,
-                            unit_price=s_line.unit_price,
-                            discount_amount=line_disc_amount,
-                            tax_id=s_line.tax_id,
-                            tax_amount=line_tax_amt,
-                            line_total=round_money(line_total),
-                        )
-                        invoice_lines_to_add.append(inv_line)
+                        line_discount_total += line_disc_amount
+                        line_net = max(Decimal("0.00"), s_line.amount - line_disc_amount)
+                        prod_line_data.append((s_line, line_disc_amount, line_net))
 
                     # 3. Subscription-Scoped Discount on Post-Line Subtotal (D-004)
-                    post_line_subtotal = subtotal - discount_total
+                    post_line_subtotal = subtotal - line_discount_total
                     sub_disc_match = evaluate_subscription_discount(
                         db=db,
                         subscription_id=sub.id,
@@ -226,8 +214,54 @@ def run_billing_engine(
                             )
                             applied_discounts_to_add.append(applied_disc)
 
-                    discount_total += sub_disc_amount
-                    total = subtotal - discount_total + tax_total
+                    discount_total = line_discount_total + sub_disc_amount
+
+                    # 4. Prorate invoice-level discount across lines to reduce taxable base (D-006)
+                    all_nets = [plan_net] + [item[2] for item in prod_line_data]
+                    prorated_shares = compute_prorated_discount_shares(all_nets, sub_disc_amount)
+
+                    # Compute plan line tax and line_total
+                    plan_share = prorated_shares[0]
+                    plan_taxable = max(Decimal("0.00"), round_money(plan_net - plan_share))
+                    plan_tax_amount = calculate_tax_amount(plan_tax, plan_taxable, 1)
+                    plan_line_total = round_money(plan_taxable + plan_tax_amount)
+
+                    plan_line = InvoiceLine(
+                        source="plan_fee",
+                        product_id=None,
+                        description=f"{sub.plan.name} - Recurring Base Fee",
+                        quantity=1,
+                        unit_price=sub.plan.price,
+                        discount_amount=Decimal("0.00"),
+                        tax_id=plan_tax_id,
+                        tax_amount=plan_tax_amount,
+                        line_total=plan_line_total,
+                    )
+                    invoice_lines_to_add: List[InvoiceLine] = [plan_line]
+                    tax_total = plan_tax_amount
+
+                    # Compute product lines tax and line_total
+                    for idx, (s_line, line_disc_amount, line_net) in enumerate(prod_line_data, start=1):
+                        l_share = prorated_shares[idx]
+                        l_taxable = max(Decimal("0.00"), round_money(line_net - l_share))
+                        line_tax_amt = calculate_tax_amount(s_line.tax, l_taxable, s_line.quantity)
+                        tax_total += line_tax_amt
+                        line_total = round_money(l_taxable + line_tax_amt)
+
+                        inv_line = InvoiceLine(
+                            source="product",
+                            product_id=s_line.product_id,
+                            description=s_line.description,
+                            quantity=s_line.quantity,
+                            unit_price=s_line.unit_price,
+                            discount_amount=line_disc_amount,
+                            tax_id=s_line.tax_id,
+                            tax_amount=line_tax_amt,
+                            line_total=line_total,
+                        )
+                        invoice_lines_to_add.append(inv_line)
+
+                    total = round_money(subtotal - discount_total + tax_total)
 
                     # Issue invoice number & compute due date
                     if not dry_run:
@@ -285,6 +319,7 @@ def run_billing_engine(
                         try:
                             db.commit()
                             created_count += 1
+                            billed_for_sub += 1
                         except IntegrityError:
                             # UNIQUE(subscription_id, period_start) constraint caught race condition
                             db.rollback()
@@ -293,6 +328,7 @@ def run_billing_engine(
                     else:
                         # In dry run, simply count
                         created_count += 1
+                        billed_for_sub += 1
                         sub.periods_billed += 1
                         sub.next_invoice_date = anchor + get_period_delta(period_unit, sub.periods_billed)
 
@@ -325,6 +361,7 @@ def run_billing_engine(
         created=created_count,
         skipped_already_billed=skipped_already_billed,
         skipped_not_due=skipped_not_due,
+        remaining_due=remaining_due,
         failed=failed_items,
         duration_ms=duration_ms,
         dry_run=dry_run,

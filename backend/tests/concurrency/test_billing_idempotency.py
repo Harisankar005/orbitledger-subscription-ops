@@ -30,10 +30,15 @@ from app.services.idempotency import (
     execute_with_idempotency,
 )
 
-TEST_DB_PATH = "./test_concurrency_controlled.db"
-TEST_DB_URL = f"sqlite:///{TEST_DB_PATH}"
-
-test_engine = create_engine(TEST_DB_URL, connect_args={"check_same_thread": False})
+env_db_url = os.environ.get("DATABASE_URL")
+if env_db_url and env_db_url.startswith("postgresql"):
+    TEST_DB_URL = env_db_url
+    TEST_DB_PATH = None
+    test_engine = create_engine(TEST_DB_URL, pool_pre_ping=True)
+else:
+    TEST_DB_PATH = "./test_concurrency_controlled.db"
+    TEST_DB_URL = f"sqlite:///{TEST_DB_PATH}"
+    test_engine = create_engine(TEST_DB_URL, connect_args={"check_same_thread": False})
 TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
 
 orig_session_local = app_db.SessionLocal
@@ -105,7 +110,7 @@ def setup_controlled_database():
     app.dependency_overrides.pop(get_db, None)
 
     test_engine.dispose()
-    if os.path.exists(TEST_DB_PATH):
+    if TEST_DB_PATH and os.path.exists(TEST_DB_PATH):
         try:
             os.remove(TEST_DB_PATH)
         except OSError:

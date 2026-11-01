@@ -27,3 +27,15 @@
 - Context. Local development and grading may run without PostgreSQL installed.
 - Decision. Write queries using portable SQLAlchemy 2.0 ORM expressions. Guard PostgreSQL-specific statements (`SKIP LOCKED` and advisory locks) behind database dialect checks.
 - Consequence. Developers can run the application on SQLite with WAL mode while production deployments use PostgreSQL row locks.
+
+### D-006: invoice-level discount pro-rata tax allocation
+- Context. Subscription-scoped or invoice-level discounts reduce the total receivable, but line-level taxes must accurately reflect the net reduced taxable base.
+- Decision. Taxable base per line equals line gross amount minus line discount minus the line's pro-rata share of any invoice-level discount:
+  $$\text{Line Share} = \text{round\_money}\left( D_{\text{inv}} \times \frac{\text{Line Net}}{\sum \text{Line Nets}} \right)$$
+  Any rounding cent discrepancy between the sum of line shares and the invoice discount is absorbed by the line with the largest net amount. Each line's tax is computed on this reduced taxable base with standard `ROUND_HALF_UP`, guaranteeing that `sum(line.tax_amount) == invoice.tax_total` to the cent and `total == subtotal - discount_total + tax_total`.
+- Consequence. Invoice-level discounts proportionally reduce tax liability, and the line item totals balance with the overall invoice total.
+
+### D-007: billing catch-up period cap
+- Context. Subscriptions with long-unbilled start dates (such as a daily subscription created a year in the past) could cause request timeouts or transaction bloat if hundreds of periods were billed in a single transaction.
+- Decision. Enforce `MAX_CATCHUP_PERIODS` (default 12) per subscription per billing run. A subscription with more due periods than the cap bills only the cap; remaining due cycles stay due and are reported in `remaining_due` in the API response and operations console.
+- Consequence. Guarantees bounded latency per billing run while ensuring missed cycles catch up safely and idempotently over subsequent runs.

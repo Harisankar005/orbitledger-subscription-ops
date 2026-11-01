@@ -37,8 +37,27 @@ from app.services.billing import get_period_delta
 from app.services.tax import round_money
 
 
-def seed_database(small: bool = True):
+def seed_database(small: bool = True, reset: bool = False) -> bool:
     """Deterministic, idempotent seed data generator (PLAN.md Section 10)."""
+    from app.config import settings
+
+    if settings.ENVIRONMENT == "production":
+        raise RuntimeError("Refusing to seed: cannot run app.seed against a production environment (ENVIRONMENT='production')!")
+    if "production" in settings.DATABASE_URL.lower():
+        raise RuntimeError("Refusing to seed: cannot run app.seed against a production DATABASE_URL!")
+
+    has_existing_data = False
+    try:
+        with SessionLocal() as check_db:
+            has_existing_data = (check_db.query(User).count() > 0) or (check_db.query(Customer).count() > 0)
+    except Exception:
+        has_existing_data = False
+
+    if has_existing_data and not reset:
+        print("[WARNING] Existing data found in database. Seeding refused without explicit --reset flag.")
+        print("[WARNING] To drop existing data and re-seed, run with: python -m app.seed --reset (with optional --small or --full)")
+        return False
+
     random.seed(42)  # Deterministic seed
 
     # Reset schema for clean deterministic seed
@@ -630,13 +649,15 @@ def seed_database(small: bool = True):
         print("  - Staff 2:  staff2@brightloop.test   / Staff@1234")
         print("  - Customer: customer@brightloop.test / Customer@1234")
         print("=" * 60)
+        return True
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Seed OrbitLedger database")
     parser.add_argument("--small", action="store_true", default=True, help="Seed small demo dataset (default: True)")
     parser.add_argument("--full", action="store_true", help="Seed full scale performance dataset")
+    parser.add_argument("--reset", action="store_true", help="Explicitly reset/drop existing database before seeding")
     args = parser.parse_args()
 
     is_small = not args.full
-    seed_database(small=is_small)
+    seed_database(small=is_small, reset=args.reset)
