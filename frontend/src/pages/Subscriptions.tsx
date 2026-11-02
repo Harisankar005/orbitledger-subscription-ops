@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import { formatDate } from "@/lib/utils";
@@ -14,6 +14,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Plus, ArrowRight, Layers } from "lucide-react";
 
 export function Subscriptions() {
+  const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [templateModalOpen, setTemplateModalOpen] = useState<boolean>(false);
@@ -51,11 +52,14 @@ export function Subscriptions() {
   );
 
   const createFromTemplateMutation = useMutation({
-    mutationFn: (data: any) => api.post(`/subscriptions/from-template/${data.templateId}`, data.payload),
-    onSuccess: () => {
+    mutationFn: (data: any) => api.post<{ id: number }>(`/subscriptions/from-template/${data.templateId}`, data.payload),
+    onSuccess: (res: any) => {
       queryClient.invalidateQueries({ queryKey: ["subscriptions"] });
       setTemplateModalOpen(false);
       toast.success("Subscription created from template successfully");
+      if (res?.id) {
+        navigate(`/subscriptions/${res.id}`);
+      }
     },
     onError: (err: any) => {
       toast.error(err.message || "Failed to create subscription");
