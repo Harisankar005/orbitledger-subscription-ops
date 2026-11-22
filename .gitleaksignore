@@ -1,0 +1,4 @@
+# Gitleaks ignore file
+# CI test dummy key in GitHub Actions workflow
+3160f45ffd6b8832a4ea236aa5bd6e1b2a4b1b2d:.github/workflows/ci.yml:generic-api-key:132
+1b5da0457222b208c086bae3d371b60531afe344:.github/workflows/ci.yml:generic-api-key:49
