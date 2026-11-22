@@ -31,6 +31,16 @@ htmlcov/
 .ruff_cache/
 .hypothesis/
 
+# Playwright
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/
+frontend/playwright/.cache/
+
 # Database & runtime
 *.db
 *.db-shm
@@ -52,7 +62,11 @@ yarn-error.log*
 
 # Environment & IDE
 .env
+.env.*
+!.env.example
 .DS_Store
 Thumbs.db
+Desktop.ini
+ehthumbs.db
 .vscode/
 .idea/
