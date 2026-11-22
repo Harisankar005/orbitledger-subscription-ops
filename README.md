@@ -1,5 +1,6 @@
 # OrbitLedger Subscription Operations
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![CI Pipeline](https://github.com/Harisankar005/orbitledger-subscription-ops/actions/workflows/ci.yml/badge.svg)](https://github.com/Harisankar005/orbitledger-subscription-ops/actions/workflows/ci.yml)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com/)
@@ -11,7 +12,8 @@ OrbitLedger manages subscription lifecycles, recurring billing, and revenue reco
 
 > OrbitLedger is the subscription operations and recurring billing platform, and `orbitledger.test` serves as the primary demo tenant domain and organization context.
 >
-> **Project Builders (Odoo Hackathon):**
+> **Project Builders & Ownership Matrix:**
+> <!-- TODO(user): Confirm and finalize credits and module ownership with co-author Rohan S before public release -->
 > - **B. Harisankar** ([@Harisankar005](https://github.com/Harisankar005)) — System Architecture, Billing Engine, Concurrency & Security, API Services, Database Migrations
 > - **Rohan S** ([@rohan1537](https://github.com/rohan1537)) — Frontend Architecture, Operations Console, Customer Portal, Recharts Analytics, Containerization & CI/CD
 
@@ -53,6 +55,10 @@ Open the application and documentation in your browser:
 > **Note on Email Outbox:** The local email inbox at `http://localhost:8025` is provided by Mailpit when running with Docker Compose. In this manual setup, all generated emails are safely queued in the transactional outbox and visible inside the application on the admin Outbox page at `http://localhost:5173/admin/outbox`.
 
 ---
+
+## Screenshots and Demonstration Walkthrough
+
+<!-- TODO(user): Add recorded demonstration video link (YouTube / Loom) and refreshed screenshot assets here before publication -->
 
 ## How to run the 4-minute demo
 
