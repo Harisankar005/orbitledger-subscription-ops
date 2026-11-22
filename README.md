@@ -15,7 +15,7 @@ OrbitLedger manages subscription lifecycles, recurring billing, and revenue reco
 > **Project Builders & Ownership Matrix:**
 > <!-- TODO(user): Confirm and finalize credits and module ownership with co-author Rohan S before public release -->
 > - **B. Harisankar** ([@Harisankar005](https://github.com/Harisankar005)) — System Architecture, Billing Engine, Concurrency & Security, API Services, Database Migrations
-> - **Rohan S** (GitHub: [confirm handle](https://github.com)) — Frontend Architecture, Operations Console, Customer Portal, Recharts Analytics, Containerization & CI/CD
+> - **Rohan S** — Frontend Architecture, Operations Console, Customer Portal, Recharts Analytics, Containerization & CI/CD
 
 ---
 
@@ -177,7 +177,7 @@ Coverage across `app/services`: **91%**
 
 > **Security & Dependency Audit Status:**
 > - Python backend dependencies: **0 known vulnerabilities** (`pip-audit -r backend/requirements.txt`).
-> - Frontend runtime dependencies (`npm audit --omit=dev`): Reports 3 low-to-moderate risk client-side advisories (`zod <4.6.6` collection recursion bounds and `react-router-dom 6.22.3` SSR hydration). OrbitLedger uses Zod strictly for bounded client-side form validation and is a pure client SPA with static routes; upgrading requires breaking major framework migrations (`zod@4`, `react-router@7`).
+> - Frontend runtime dependencies (`npm audit --omit=dev`): `react-router-dom` is bumped to the latest 6.x release (`^6.30.6`). Static analysis confirms all navigation calls use hardcoded internal paths with zero dynamic `?next=` or `returnTo` parameters (precluding open redirects), and the app uses no SSR hydration. `zod` (<4.6.6) is used strictly for client-side form validation on flat, bounded user inputs. Upgrades eliminating both advisories entirely require major breaking framework migrations (`react-router@7`, `zod@4`).
 > - Frontend dev tooling (`devDependencies`): Advisories in `tinypool <= 2.1.1` and `esbuild` affect local test/build tooling (`vitest`, `vite`) only; these are completely excluded from production Nginx bundles. Full threat analysis in [docs/SECURITY.md](docs/SECURITY.md).
 - `services/discount.py`: **99%**
 - `services/invoice.py`: **99%**
@@ -286,4 +286,4 @@ Verified against Git history (`git shortlog -sne --all` and per-author commit in
 | Builder | Core Responsibilities | Modules Owned |
 |---|---|---|
 | **B. Harisankar** ([@Harisankar005](https://github.com/Harisankar005)) | System Architecture, Data Modeling, Recurring Billing Engine, Pricing & Tax Engine, Idempotency & Concurrency, RBAC & Security, Audit Trails, Alembic Migrations, Containerization & CI/CD | `backend/alembic/`, `backend/app/models/`, `backend/app/services/` (billing, tax, discount, numbering, idempotency, auth, reports, audit), `backend/app/routers/` (billing, catalog, customers, discounts, invoices, payments, platform, reports, subscriptions, users), `backend/app/security.py`, `backend/app/seed.py`, `backend/app/perf.py`, `backend/tests/`, `docker-compose.yml`, `.github/workflows/ci.yml` |
-| **Rohan S** (GitHub: [confirm handle](https://github.com)) | Frontend Architecture, Single-Page Operations Console, Customer Portal, Recharts Analytics, Docker Nginx Reverse Proxy, Customer Self-Service Profile API, Demo Documentation | `frontend/src/` (components, pages, lib, hooks), `frontend/Dockerfile`, `frontend/nginx.conf`, `backend/app/routers/portal.py`, `docs/DEMO_SCRIPT.md` |
+| **Rohan S** | Frontend Architecture, Single-Page Operations Console, Customer Portal, Recharts Analytics, Docker Nginx Reverse Proxy, Customer Self-Service Profile API, Demo Documentation | `frontend/src/` (components, pages, lib, hooks), `frontend/Dockerfile`, `frontend/nginx.conf`, `backend/app/routers/portal.py`, `docs/DEMO_SCRIPT.md` |
