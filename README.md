@@ -15,7 +15,7 @@ OrbitLedger manages subscription lifecycles, recurring billing, and revenue reco
 > **Project Builders & Ownership Matrix:**
 > <!-- TODO(user): Confirm and finalize credits and module ownership with co-author Rohan S before public release -->
 > - **B. Harisankar** ([@Harisankar005](https://github.com/Harisankar005)) — System Architecture, Billing Engine, Concurrency & Security, API Services, Database Migrations
-> - **Rohan S** ([@rohan1537](https://github.com/rohan1537)) — Frontend Architecture, Operations Console, Customer Portal, Recharts Analytics, Containerization & CI/CD
+> - **Rohan S** ([@rohan1537](https://github.com/rohan1537)) <!-- TODO(user): Confirm Rohan S GitHub handle --> — Frontend Architecture, Operations Console, Customer Portal, Recharts Analytics, Containerization & CI/CD
 
 ---
 
@@ -56,10 +56,6 @@ Open the application and documentation in your browser:
 
 ---
 
-## Screenshots and Demonstration Walkthrough
-
-<!-- TODO(user): Add recorded demonstration video link (YouTube / Loom) and refreshed screenshot assets here before publication -->
-
 ## How to run the 4-minute demo
 
 For live presentations and hackathon evaluation, follow the step-by-step walkthrough in [**docs/DEMO_SCRIPT.md**](docs/DEMO_SCRIPT.md). It outlines a guided 4-minute path covering:
@@ -72,6 +68,8 @@ For live presentations and hackathon evaluation, follow the step-by-step walkthr
 
 ## Application screenshots
 
+<!-- TODO(user): Add recorded demonstration video link (YouTube / Loom) here before publication -->
+
 | Operations Dashboard | Subscription Lifecycle & Stepper |
 |---|---|
 | ![Operations Dashboard](docs/screenshots/dashboard.png) | ![Subscription Detail](docs/screenshots/subscription_detail.png) |
@@ -81,8 +79,6 @@ For live presentations and hackathon evaluation, follow the step-by-step walkthr
 |---|---|
 | ![Invoice Detail](docs/screenshots/invoice_detail.png) | ![Mobile Customer Portal](docs/screenshots/customer_portal_mobile.png) |
 | *Prorated multi-line discounts, tax breakdown, payment history, and atomic payment recording.* | *Customer self-service portal optimized for mobile viewports with card-based responsive views.* |
-
----
 
 ---
 
@@ -178,6 +174,11 @@ npm run test:e2e
 ```
 
 Coverage across `app/services`: **91%**
+
+> **Security & Dependency Audit Status:**
+> - Python backend dependencies: **0 known vulnerabilities** (`pip-audit -r backend/requirements.txt`).
+> - Frontend production build: **0 runtime vulnerabilities** (`npm audit --omit=dev`).
+> - Remaining `npm audit` advisories (`tinypool`, `esbuild`, `zod`, `react-router`) are dev-only or transitive test/tooling dependencies that cannot be eliminated without breaking major framework upgrades (`vitest@5`, `vite@8`, `zod@4`). Production artifacts are precompiled static assets served via Nginx with zero Node.js execution. See [docs/SECURITY.md](docs/SECURITY.md) for full analysis.
 - `services/discount.py`: **99%**
 - `services/invoice.py`: **99%**
 - `services/catalog.py`: **98%**
@@ -285,4 +286,4 @@ Verified against Git history (`git shortlog -sne --all` and per-author commit in
 | Builder | Core Responsibilities | Modules Owned |
 |---|---|---|
 | **B. Harisankar** ([@Harisankar005](https://github.com/Harisankar005)) | System Architecture, Data Modeling, Recurring Billing Engine, Pricing & Tax Engine, Idempotency & Concurrency, RBAC & Security, Audit Trails, Alembic Migrations, Containerization & CI/CD | `backend/alembic/`, `backend/app/models/`, `backend/app/services/` (billing, tax, discount, numbering, idempotency, auth, reports, audit), `backend/app/routers/` (billing, catalog, customers, discounts, invoices, payments, platform, reports, subscriptions, users), `backend/app/security.py`, `backend/app/seed.py`, `backend/app/perf.py`, `backend/tests/`, `docker-compose.yml`, `.github/workflows/ci.yml` |
-| **Rohan S** ([@rohan1537](https://github.com/rohan1537)) | Frontend Architecture, Single-Page Operations Console, Customer Portal, Recharts Analytics, Docker Nginx Reverse Proxy, Customer Self-Service Profile API, Demo Documentation | `frontend/src/` (components, pages, lib, hooks), `frontend/Dockerfile`, `frontend/nginx.conf`, `backend/app/routers/portal.py`, `docs/DEMO_SCRIPT.md` |
+| **Rohan S** ([@rohan1537](https://github.com/rohan1537)) <!-- TODO(user): Confirm Rohan S GitHub handle --> | Frontend Architecture, Single-Page Operations Console, Customer Portal, Recharts Analytics, Docker Nginx Reverse Proxy, Customer Self-Service Profile API, Demo Documentation | `frontend/src/` (components, pages, lib, hooks), `frontend/Dockerfile`, `frontend/nginx.conf`, `backend/app/routers/portal.py`, `docs/DEMO_SCRIPT.md` |
