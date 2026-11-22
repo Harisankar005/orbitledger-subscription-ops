@@ -13,9 +13,9 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_USER: brightloop
-          POSTGRES_PASSWORD: brightloop
-          POSTGRES_DB: brightloop_test
+          POSTGRES_USER: orbitledger
+          POSTGRES_PASSWORD: orbitledger
+          POSTGRES_DB: orbitledger_test
         ports:
           - 5432:5432
         options: >-
@@ -109,9 +109,9 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_USER: brightloop
-          POSTGRES_PASSWORD: brightloop
-          POSTGRES_DB: brightloop_test
+          POSTGRES_USER: orbitledger
+          POSTGRES_PASSWORD: orbitledger
+          POSTGRES_DB: orbitledger_test
         ports:
           - 5432:5432
         options: >-
@@ -136,7 +136,7 @@ jobs:
 
       - name: Run concurrency tests against PostgreSQL 16
         env:
-          DATABASE_URL: postgresql+psycopg://brightloop:brightloop@localhost:5432/brightloop_test
+          DATABASE_URL: postgresql+psycopg://orbitledger:orbitledger@localhost:5432/orbitledger_test
           SECRET_KEY: ci-test-secret-key-at-least-32-chars-long
           ENVIRONMENT: test
         run: |

@@ -13,11 +13,11 @@ client = TestClient(app)
 
 @pytest.fixture(scope="module")
 def auth_tokens():
-    resp_admin = client.post("/api/auth/login", json={"email": "admin@brightloop.test", "password": "Admin@1234"})
+    resp_admin = client.post("/api/auth/login", json={"email": "admin@orbitledger.test", "password": "Admin@1234"})
     assert resp_admin.status_code == 200, f"Admin login failed: {resp_admin.text}"
     admin_token = resp_admin.json()["access_token"]
 
-    resp_staff = client.post("/api/auth/login", json={"email": "staff1@brightloop.test", "password": "Staff@1234"})
+    resp_staff = client.post("/api/auth/login", json={"email": "staff1@orbitledger.test", "password": "Staff@1234"})
     assert resp_staff.status_code == 200, f"Staff login failed: {resp_staff.text}"
     staff_token = resp_staff.json()["access_token"]
 

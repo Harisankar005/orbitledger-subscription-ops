@@ -26,7 +26,7 @@ def test_billing_catchup_cap_with_daily_plan():
     with SessionLocal() as db:
         customer = Customer(
             name=f"Catchup Corp {uuid.uuid4()}",
-            email=f"catchup-{uuid.uuid4()}@brightloop.test",
+            email=f"catchup-{uuid.uuid4()}@orbitledger.test",
         )
         term = db.query(PaymentTerm).first()
         plan = Plan(
@@ -88,7 +88,7 @@ def test_engine_level_month_end_anchor_jan31_feb_mar_no_drift():
     with SessionLocal() as db:
         customer = Customer(
             name=f"MonthEnd Corp {uuid.uuid4()}",
-            email=f"monthend-{uuid.uuid4()}@brightloop.test",
+            email=f"monthend-{uuid.uuid4()}@orbitledger.test",
         )
         term = db.query(PaymentTerm).first()
         plan = Plan(

@@ -34,7 +34,7 @@ function LoadingScreen() {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
       <div className="h-10 w-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-bold text-xl mb-4 animate-pulse">
-        B
+        O
       </div>
       <div className="text-sm font-medium text-slate-600">Loading workspace...</div>
     </div>

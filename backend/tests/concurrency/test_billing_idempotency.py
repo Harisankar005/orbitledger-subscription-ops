@@ -72,13 +72,13 @@ def setup_controlled_database():
 
     with TestSessionLocal() as db:
         admin = User(
-            email="admin@brightloop.test",
+            email="admin@orbitledger.test",
             password_hash=hash_password("Admin@1234"),
             role="admin",
             full_name="Admin Vance",
             is_active=True,
         )
-        cust = Customer(name="Acme Corp", email="acme@brightloop.test")
+        cust = Customer(name="Acme Corp", email="acme@orbitledger.test")
         term = PaymentTerm(name="Immediate", days=0)
         db.add_all([admin, cust, term])
         db.flush()
@@ -122,7 +122,7 @@ def setup_controlled_database():
 
 
 def get_admin_token() -> str:
-    login_resp = client.post("/api/auth/login", json={"email": "admin@brightloop.test", "password": "Admin@1234"})
+    login_resp = client.post("/api/auth/login", json={"email": "admin@orbitledger.test", "password": "Admin@1234"})
     assert login_resp.status_code == 200, f"Login failed: {login_resp.text}"
     return login_resp.json()["access_token"]
 

@@ -1509,7 +1509,7 @@ export interface operations {
   refresh_api_auth_refresh_post: {
     parameters: {
       cookie?: {
-        brightloop_refresh?: string | null;
+        orbitledger_refresh?: string | null;
       };
     };
     responses: {
@@ -1531,7 +1531,7 @@ export interface operations {
   logout_api_auth_logout_post: {
     parameters: {
       cookie?: {
-        brightloop_refresh?: string | null;
+        orbitledger_refresh?: string | null;
       };
     };
     responses: {

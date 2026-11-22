@@ -96,7 +96,7 @@
         "operationId": "refresh_api_auth_refresh_post",
         "parameters": [
           {
-            "name": "brightloop_refresh",
+            "name": "orbitledger_refresh",
             "in": "cookie",
             "required": false,
             "schema": {
@@ -108,7 +108,7 @@
                   "type": "null"
                 }
               ],
-              "title": "Brightloop Refresh"
+              "title": "Orbitledger Refresh"
             }
           }
         ],
@@ -145,7 +145,7 @@
         "operationId": "logout_api_auth_logout_post",
         "parameters": [
           {
-            "name": "brightloop_refresh",
+            "name": "orbitledger_refresh",
             "in": "cookie",
             "required": false,
             "schema": {
@@ -157,7 +157,7 @@
                   "type": "null"
                 }
               ],
-              "title": "Brightloop Refresh"
+              "title": "Orbitledger Refresh"
             }
           }
         ],

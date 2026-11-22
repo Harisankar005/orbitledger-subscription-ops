@@ -165,7 +165,7 @@ def generate_invoice_html(inv: Invoice) -> str:
             </div>
 
             <div style="margin-top: 40px; border-top: 1px solid #e2e8f0; padding-top: 16px; font-size: 12px; color: #94a3b8; text-align: center;">
-                Thank you for your business! For inquiries, contact billing@brightloop.test
+                Thank you for your business! For inquiries, contact billing@orbitledger.test
             </div>
         </div>
     </body>

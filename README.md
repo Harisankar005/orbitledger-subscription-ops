@@ -1,5 +1,6 @@
 # OrbitLedger Subscription Operations
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![CI Pipeline](https://github.com/Harisankar005/orbitledger-subscription-ops/actions/workflows/ci.yml/badge.svg)](https://github.com/Harisankar005/orbitledger-subscription-ops/actions/workflows/ci.yml)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com/)
@@ -9,11 +10,12 @@
 
 OrbitLedger manages subscription lifecycles, recurring billing, and revenue records. Built with Python 3.12, FastAPI, SQLAlchemy 2.0, PostgreSQL with SQLite fallback, and a React 18 TypeScript single-page client.
 
-> **Built for Brightloop Software:** OrbitLedger is the subscription operations and recurring billing platform, and `brightloop.test` serves as the primary demo tenant domain and organization context.
+> OrbitLedger is the subscription operations and recurring billing platform, and `orbitledger.test` serves as the primary demo tenant domain and organization context.
 >
-> **Project Builders (Odoo Hackathon):**
+> **Project Builders & Ownership Matrix:**
+> <!-- TODO(user): Confirm and finalize credits and module ownership with co-author Rohan S before public release -->
 > - **B. Harisankar** ([@Harisankar005](https://github.com/Harisankar005)) — System Architecture, Billing Engine, Concurrency & Security, API Services, Database Migrations
-> - **Rohan S** ([@rohan1537](https://github.com/rohan1537)) — Frontend Architecture, Operations Console, Customer Portal, Recharts Analytics, Containerization & CI/CD
+> - **Rohan S** — Frontend Architecture, Operations Console, Customer Portal, Recharts Analytics, Containerization & CI/CD
 
 ---
 
@@ -30,7 +32,7 @@ cp .env.example backend/.env                 # Windows: copy .env.example backen
 cd backend
 python -m venv .venv
 source .venv/bin/activate                    # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+pip install -r requirements.txt -r requirements-dev.txt
 
 # 3. Run database migrations and seed data
 alembic upgrade head
@@ -45,7 +47,10 @@ npm install
 npm run dev
 ```
 
-Open the web app at `http://localhost:5173`.
+Open the application and documentation in your browser:
+- **Web client:** `http://localhost:5173`
+- **Interactive API Documentation (Swagger):** `http://localhost:8000/api/docs`
+- **Alternative API Documentation (ReDoc):** `http://localhost:8000/api/redoc`
 
 > **Note on Email Outbox:** The local email inbox at `http://localhost:8025` is provided by Mailpit when running with Docker Compose. In this manual setup, all generated emails are safely queued in the transactional outbox and visible inside the application on the admin Outbox page at `http://localhost:5173/admin/outbox`.
 
@@ -63,6 +68,8 @@ For live presentations and hackathon evaluation, follow the step-by-step walkthr
 
 ## Application screenshots
 
+<!-- TODO(user): Add recorded demonstration video link (YouTube / Loom) here before publication -->
+
 | Operations Dashboard | Subscription Lifecycle & Stepper |
 |---|---|
 | ![Operations Dashboard](docs/screenshots/dashboard.png) | ![Subscription Detail](docs/screenshots/subscription_detail.png) |
@@ -75,17 +82,15 @@ For live presentations and hackathon evaluation, follow the step-by-step walkthr
 
 ---
 
----
-
 ## Seeded demo credentials
 
 The login page includes buttons that fill credentials with one click.
 
 | Role | Email | Password | Access capabilities |
 |---|---|---|---|
-| Platform admin | `admin@brightloop.test` | `Admin@1234` | All records, user accounts, audit logs, outbox queue |
-| Operations staff | `staff1@brightloop.test` | `Staff@1234` | Subscriptions, catalog, billing runs, payments, invoices |
-| Customer subscriber | `customer@brightloop.test` | `Customer@1234` | Customer portal, pause, close, invoice printing |
+| Platform admin | `admin@orbitledger.test` | `Admin@1234` | All records, user accounts, audit logs, outbox queue |
+| Operations staff | `staff1@orbitledger.test` | `Staff@1234` | Subscriptions, catalog, billing runs, payments, invoices |
+| Customer subscriber | `customer@orbitledger.test` | `Customer@1234` | Customer portal, pause, close, invoice printing |
 
 ---
 
@@ -162,9 +167,18 @@ pytest -v --cov=app/services tests/
 cd ../frontend
 npm run test
 npm run lint
+
+# Playwright Golden Path E2E tests
+npx playwright install chromium
+npm run test:e2e
 ```
 
 Coverage across `app/services`: **91%**
+
+> **Security & Dependency Audit Status:**
+> - Python backend dependencies: **0 known vulnerabilities** (`pip-audit -r backend/requirements.txt`).
+> - Frontend runtime dependencies (`npm audit --omit=dev`): `react-router-dom` is bumped to the latest 6.x release (`^6.30.6`). Static analysis confirms all navigation calls use hardcoded internal paths with zero dynamic `?next=` or `returnTo` parameters (precluding open redirects), and the app uses no SSR hydration. `zod` (<4.6.6) is used strictly for client-side form validation on flat, bounded user inputs. Upgrades eliminating both advisories entirely require major breaking framework migrations (`react-router@7`, `zod@4`).
+> - Frontend dev tooling (`devDependencies`): Advisories in `tinypool <= 2.1.1` and `esbuild` affect local test/build tooling (`vitest`, `vite`) only; these are completely excluded from production Nginx bundles. Full threat analysis in [docs/SECURITY.md](docs/SECURITY.md).
 - `services/discount.py`: **99%**
 - `services/invoice.py`: **99%**
 - `services/catalog.py`: **98%**
@@ -177,7 +191,7 @@ Coverage across `app/services`: **91%**
 - `services/auth.py`: **81%**
 - `services/idempotency.py`: **81%**
 
-All 76 backend tests pass against an isolated temporary database (`conftest.py` ensures `brightloop.db` is never touched):
+All 76 backend tests pass against an isolated temporary database (`conftest.py` ensures `orbitledger.db` is never touched):
 
 ```text
 tests/authz/test_authz_matrix.py (4 tests) - Staff forbidden from admin actions, staff business ops, customer scoping, unauthenticated rejection
@@ -222,7 +236,7 @@ To enable time-travel clock advancement for demonstration:
 DEMO_MODE=true docker compose up
 ```
 
-When running in demo mode, platform administrators (`admin@brightloop.test`) see a **Time Travel +1 Mo** button in the top navigation bar. Clicking it calls `/api/demo/advance-clock`, advancing the simulated UTC clock by one calendar month and triggering the idempotent billing engine to generate new invoice cycles without waiting 30 days.
+When running in demo mode, platform administrators (`admin@orbitledger.test`) see a **Time Travel +1 Mo** button in the top navigation bar. Clicking it calls `/api/demo/advance-clock`, advancing the simulated UTC clock by one calendar month and triggering the idempotent billing engine to generate new invoice cycles without waiting 30 days.
 
 ### Dataset sizes
 
@@ -231,7 +245,7 @@ When running in demo mode, platform administrators (`admin@brightloop.test`) see
 
 ### Known limitations
 
-1. **Local database dialect**: Local single-process runs use SQLite (`sqlite:///./brightloop.db`), relying on serialized transactions. Multi-worker row-level locking (`SKIP LOCKED`) is active on PostgreSQL 16 in Docker Compose and production environments.
+1. **Local database dialect**: Local single-process runs use SQLite (`sqlite:///./orbitledger.db`), relying on serialized transactions. Multi-worker row-level locking (`SKIP LOCKED`) is active on PostgreSQL 16 in Docker Compose and production environments.
 2. **Payment processor simulation**: Payment recording models offline and direct bank transactions (UPI, card, bank transfer, cheque, cash) rather than calling third-party payment gateways (Stripe/Razorpay) via external webhooks.
 3. **Outbox email delivery**: Transactional outbox messages are delivered to local Mailpit SMTP (`http://localhost:8025`) for self-contained validation rather than external authenticated SMTP relays.
 4. **Client-side routing**: The frontend is a React 18 single-page application using code splitting (`React.lazy`, main bundle: ~248 kB) rather than server-side rendering (SSR).
@@ -272,4 +286,4 @@ Verified against Git history (`git shortlog -sne --all` and per-author commit in
 | Builder | Core Responsibilities | Modules Owned |
 |---|---|---|
 | **B. Harisankar** ([@Harisankar005](https://github.com/Harisankar005)) | System Architecture, Data Modeling, Recurring Billing Engine, Pricing & Tax Engine, Idempotency & Concurrency, RBAC & Security, Audit Trails, Alembic Migrations, Containerization & CI/CD | `backend/alembic/`, `backend/app/models/`, `backend/app/services/` (billing, tax, discount, numbering, idempotency, auth, reports, audit), `backend/app/routers/` (billing, catalog, customers, discounts, invoices, payments, platform, reports, subscriptions, users), `backend/app/security.py`, `backend/app/seed.py`, `backend/app/perf.py`, `backend/tests/`, `docker-compose.yml`, `.github/workflows/ci.yml` |
-| **Rohan S** ([@rohan1537](https://github.com/rohan1537)) | Frontend Architecture, Single-Page Operations Console, Customer Portal, Recharts Analytics, Docker Nginx Reverse Proxy, Customer Self-Service Profile API, Demo Documentation | `frontend/src/` (components, pages, lib, hooks), `frontend/Dockerfile`, `frontend/nginx.conf`, `backend/app/routers/portal.py`, `docs/DEMO_SCRIPT.md` |
+| **Rohan S** | Frontend Architecture, Single-Page Operations Console, Customer Portal, Recharts Analytics, Docker Nginx Reverse Proxy, Customer Self-Service Profile API, Demo Documentation | `frontend/src/` (components, pages, lib, hooks), `frontend/Dockerfile`, `frontend/nginx.conf`, `backend/app/routers/portal.py`, `docs/DEMO_SCRIPT.md` |

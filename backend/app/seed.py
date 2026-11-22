@@ -74,28 +74,28 @@ def seed_database(small: bool = True, reset: bool = False) -> bool:
 
         # 2. Users (Admin, Staff, Customer Portal)
         admin = User(
-            email="admin@brightloop.test",
+            email="admin@orbitledger.test",
             password_hash=hash_password("Admin@1234"),
             role="admin",
             full_name="B. Harisankar (Admin)",
             is_active=True,
         )
         staff1 = User(
-            email="staff1@brightloop.test",
+            email="staff1@orbitledger.test",
             password_hash=hash_password("Staff@1234"),
             role="staff",
             full_name="Rohan S (Staff)",
             is_active=True,
         )
         staff2 = User(
-            email="staff2@brightloop.test",
+            email="staff2@orbitledger.test",
             password_hash=hash_password("Staff@1234"),
             role="staff",
             full_name="Michael Scott (Staff)",
             is_active=True,
         )
         portal_user = User(
-            email="customer@brightloop.test",
+            email="customer@orbitledger.test",
             password_hash=hash_password("Customer@1234"),
             role="customer",
             full_name="Wayne Enterprises (Bruce Wayne)",
@@ -366,7 +366,7 @@ def seed_database(small: bool = True, reset: bool = False) -> bool:
         portal_customer = Customer(
             user_id=portal_user.id,
             name="Wayne Enterprises",
-            email="customer@brightloop.test",
+            email="customer@orbitledger.test",
             phone="+91 98765 43210",
             company="Wayne Enterprises Global",
             billing_address="100 Gotham Plaza, Mumbai, Maharashtra 400001",
@@ -673,10 +673,10 @@ def seed_database(small: bool = True, reset: bool = False) -> bool:
         print("\n[SUCCESS] OrbitLedger Seed Data generated successfully!")
         print("=" * 60)
         print("DEMO LOGIN CREDENTIALS:")
-        print("  - Admin:    admin@brightloop.test    / Admin@1234")
-        print("  - Staff 1:  staff1@brightloop.test   / Staff@1234")
-        print("  - Staff 2:  staff2@brightloop.test   / Staff@1234")
-        print("  - Customer: customer@brightloop.test / Customer@1234")
+        print("  - Admin:    admin@orbitledger.test    / Admin@1234")
+        print("  - Staff 1:  staff1@orbitledger.test   / Staff@1234")
+        print("  - Staff 2:  staff2@orbitledger.test   / Staff@1234")
+        print("  - Customer: customer@orbitledger.test / Customer@1234")
         print("=" * 60)
         return True
 

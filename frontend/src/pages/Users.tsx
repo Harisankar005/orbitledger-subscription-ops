@@ -269,7 +269,7 @@ export function Users() {
               label="Staff Email"
               type="email"
               required
-              placeholder="maya@brightloop.test"
+              placeholder="maya@orbitledger.test"
               error={errors.email?.message}
               {...register("email")}
             />

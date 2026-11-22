@@ -114,13 +114,15 @@ Regular automated audits are executed in CI and verified locally:
    - Executed against `requirements.txt`.
    - Result: **0 known vulnerabilities** found.
 
-2. **Frontend dependencies (`npm audit --omit=dev`):**
-   - Executed against production dependencies.
-   - Known upstream transitive advisories in dependencies that cannot be upgraded without breaking framework compatibility:
-     - **`esbuild` / `vite` / `vitest` / `tinypool`:** Local dev-server and test runner tooling bundled in `dependencies`. These are build-time only tools; production runtime serves precompiled static assets through Nginx with zero Node.js execution. Upgrading to Vite 8 / Vitest 4 requires breaking architectural changes across plugins.
-     - **`minimatch`:** Transitive dependency of `@typescript-eslint`. A developer linting dependency with zero runtime exposure in client builds.
-     - **`react-router-dom` (GHSA-wrjc-x8rr-h8h6 / GHSA-337j-9hxr-rhxg):** Pertains to server-side rendering (SSR) hydration (`deserializeErrors`) and open redirects via backslash in dynamic navigation. OrbitLedger is a pure client-side SPA with no SSR hydration, and all navigation targets are hardcoded application paths. Upgrading to React Router v7 involves breaking API changes across the component tree.
-     - **`zod` (GHSA-mrhx-c7xc-m3w5):** Pertains to memory exhaustion when validating deeply nested recursive structures. OrbitLedger uses Zod schemas exclusively for flat, constrained form fields with explicit maximum lengths and regex bounds. Upgrading to Zod v4 is a major breaking change.
+2. **Frontend runtime dependencies (`npm audit --omit=dev`):**
+   - Executed against production dependencies bundled into the client application.
+   - **`react-router-dom` (bumped to latest 6.x release `^6.30.6`):** Upstream advisory GHSA-wrjc-x8rr-h8h6 / GHSA-337j-9hxr-rhxg covers `react-router 6.0.0 - 7.17.0`. Comprehensive codebase audit across `src/` confirms zero open redirect exposure: all `navigate(...)` and `<Navigate ...>` calls target hardcoded relative internal routes (`/`, `/login`, `/portal`, `/subscriptions/:id`) with zero user-controlled query redirects (`?next=`, `returnTo`). Furthermore, all native location and link references are strictly restricted to `window.location.reload()` and static relative invoice print endpoints (`/api/invoices/:id/print`), and OrbitLedger is a pure client-side SPA with no SSR hydration (`deserializeErrors`). Eliminating the upstream advisory from `npm audit` requires upgrading to React Router v7 (`7.18.6+`), which is a major breaking API overhaul across the routing tree.
+   - **`zod` (GHSA-mrhx-c7xc-m3w5 - High):** Pertains to memory exhaustion when validating oversized or recursively nested collection inputs. In OrbitLedger, Zod schemas are used strictly for client-side form validation of bounded, flat fields (names, prices, dates) entered by authenticated users before submission. It is not exposed to untrusted high-volume data streams. Upgrading to Zod v4 requires breaking schema and resolver migrations.
+
+3. **Frontend development & test dependencies (`devDependencies`):**
+   - Advisories in development-only tools executed solely on developer workstations and CI runners:
+     - **`tinypool` (GHSA-5gmw-xhrv-c9v3 / GHSA-85c8-ppgw-ccpr) / `vitest` / `vite` / `esbuild`:** Vitest 1.6 pulls `tinypool 0.8.4`. Upgrading to Vitest 5.x introduces breaking peer conflicts with Vite 5 and Node types. These tools run exclusively during local unit testing (`vitest run`) and CI test stages; they are completely excluded from the production Nginx web bundle.
+     - **`openapi-typescript` / `undici` / `@fastify/busboy`:** Code-generation CLI tool used only via `npm run gen:api`; has zero presence in client or server runtimes.
 
 ### Known limitations in security posture
 

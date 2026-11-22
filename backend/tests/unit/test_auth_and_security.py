@@ -56,7 +56,7 @@ def test_production_configuration_validation(monkeypatch):
         make_settings(ENVIRONMENT="production", SECRET_KEY="docker-compose-insecure-secret-key-32chars")
 
     with pytest.raises(ValueError, match="cannot use default, placeholder, or known insecure strings"):
-        make_settings(ENVIRONMENT="production", SECRET_KEY="brightloop-super-secret-key-at-least-32-chars-2026")
+        make_settings(ENVIRONMENT="production", SECRET_KEY="orbitledger-super-secret-key-at-least-32-chars-2026")
 
     # 4. Disabling secure cookies in production fails
     with pytest.raises(ValueError, match="SECURE_COOKIES cannot be False in production"):
@@ -116,7 +116,7 @@ def test_refresh_cookie_attributes():
     # Parse Set-Cookie header
     cookie_header = resp.headers.get("set-cookie")
     assert cookie_header is not None
-    assert "brightloop_refresh=test-raw-refresh-token" in cookie_header
+    assert "orbitledger_refresh=test-raw-refresh-token" in cookie_header
     assert "HttpOnly" in cookie_header or "httponly" in cookie_header
     assert "Path=/api/auth" in cookie_header or "path=/api/auth" in cookie_header
     assert "SameSite=strict" in cookie_header or "samesite=strict" in cookie_header
@@ -153,7 +153,7 @@ def test_password_policy_enforcement():
 
 def test_login_lockout_after_five_failed_attempts():
     """Verify account locks for 15 minutes after 5 consecutive failed logins."""
-    test_email = f"lockout-{uuid.uuid4()}@brightloop.test"
+    test_email = f"lockout-{uuid.uuid4()}@orbitledger.test"
     with SessionLocal() as db:
         req = RegisterRequest(
             email=test_email,
@@ -193,7 +193,7 @@ def test_login_lockout_after_five_failed_attempts():
 def test_forgot_password_enumeration_resistance():
     """Verify forgot-password returns identical responses whether email exists or not."""
     # Existing user
-    resp1 = client.post("/api/auth/forgot-password", json={"email": "admin@brightloop.test"})
+    resp1 = client.post("/api/auth/forgot-password", json={"email": "admin@orbitledger.test"})
     assert resp1.status_code == 200
 
     # Non-existent user
@@ -205,7 +205,7 @@ def test_forgot_password_enumeration_resistance():
 
 def test_token_rotation_and_reuse_family_revocation():
     """Verify refresh token rotation and revocation of entire token family upon token reuse."""
-    test_email = f"rotation-{uuid.uuid4()}@brightloop.test"
+    test_email = f"rotation-{uuid.uuid4()}@orbitledger.test"
     with SessionLocal() as db:
         req = RegisterRequest(email=test_email, password="StrongPassword@123", full_name="Rotation Test")
         register_customer(db, req)
@@ -236,7 +236,7 @@ def test_token_rotation_and_reuse_family_revocation():
 
 def test_password_reset_revokes_all_refresh_tokens():
     """Verify password reset invalidates all existing refresh tokens and enforces single-use tokens."""
-    test_email = f"reset-{uuid.uuid4()}@brightloop.test"
+    test_email = f"reset-{uuid.uuid4()}@orbitledger.test"
     with SessionLocal() as db:
         req = RegisterRequest(email=test_email, password="OldPassword@123", full_name="Reset Test")
         register_customer(db, req)

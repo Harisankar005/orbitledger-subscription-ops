@@ -48,7 +48,7 @@ def run_e2e_verification():
     print(f"      Customer registered: {customer_user['email']} (ID {customer_user['id']})")
 
     # Login as admin to perform operational actions
-    login_resp = client.post("/api/auth/login", json={"email": "admin@brightloop.test", "password": "Admin@1234"})
+    login_resp = client.post("/api/auth/login", json={"email": "admin@orbitledger.test", "password": "Admin@1234"})
     assert login_resp.status_code == 200, f"Admin login failed: {login_resp.text}"
     admin_token = login_resp.json()["access_token"]
     admin_headers = {"Authorization": f"Bearer {admin_token}"}

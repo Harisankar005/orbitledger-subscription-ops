@@ -1,7 +1,7 @@
 """Pytest test isolation configuration.
 
 Guarantees tests use an isolated database (temp SQLite file or test schema via env override)
-and never touch or mutate brightloop.db.
+and never touch or mutate orbitledger.db.
 """
 # ruff: noqa: E402
 
@@ -16,7 +16,7 @@ from sqlalchemy import create_engine, event
 original_db_url = os.environ.get("DATABASE_URL")
 
 _temp_db_file = None
-if not original_db_url or "brightloop.db" in original_db_url:
+if not original_db_url or "orbitledger.db" in original_db_url:
     _temp_db_file = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
     _temp_db_path = _temp_db_file.name
     _temp_db_file.close()
