@@ -76,7 +76,7 @@ export function ForgotPassword() {
                   label="Account Email"
                   type="email"
                   required
-                  placeholder="admin@brightloop.test"
+                  placeholder="admin@orbitledger.test"
                   error={errors.email?.message}
                   {...register("email")}
                 />

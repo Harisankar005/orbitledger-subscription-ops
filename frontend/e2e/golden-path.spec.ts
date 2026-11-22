@@ -4,7 +4,7 @@ test.describe("OrbitLedger Golden Path E2E", () => {
   test.setTimeout(90000);
 
   const uniqueId = Date.now().toString().slice(-6);
-  const newCustomerEmail = `e2e_cust_${uniqueId}@brightloop.test`;
+  const newCustomerEmail = `e2e_cust_${uniqueId}@orbitledger.test`;
   const securePassword = "SecurePass123!";
 
   test("full lifecycle: signup -> admin plan -> staff subscription -> billing -> payment -> dashboard -> portal isolation", async ({
@@ -32,7 +32,7 @@ test.describe("OrbitLedger Golden Path E2E", () => {
     await expect(page.getByRole("heading", { name: /sign in/i })).toBeVisible({ timeout: 15000 });
 
     // 2. Admin Log In
-    await page.fill('input[name="email"]', "admin@brightloop.test");
+    await page.fill('input[name="email"]', "admin@orbitledger.test");
     await page.fill('input[name="password"]', "Admin@1234");
     await page.getByRole("button", { name: /sign in/i }).click();
 

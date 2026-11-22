@@ -9,7 +9,7 @@
 
 OrbitLedger manages subscription lifecycles, recurring billing, and revenue records. Built with Python 3.12, FastAPI, SQLAlchemy 2.0, PostgreSQL with SQLite fallback, and a React 18 TypeScript single-page client.
 
-> **Built for Brightloop Software:** OrbitLedger is the subscription operations and recurring billing platform, and `brightloop.test` serves as the primary demo tenant domain and organization context.
+> OrbitLedger is the subscription operations and recurring billing platform, and `orbitledger.test` serves as the primary demo tenant domain and organization context.
 >
 > **Project Builders (Odoo Hackathon):**
 > - **B. Harisankar** ([@Harisankar005](https://github.com/Harisankar005)) — System Architecture, Billing Engine, Concurrency & Security, API Services, Database Migrations
@@ -86,9 +86,9 @@ The login page includes buttons that fill credentials with one click.
 
 | Role | Email | Password | Access capabilities |
 |---|---|---|---|
-| Platform admin | `admin@brightloop.test` | `Admin@1234` | All records, user accounts, audit logs, outbox queue |
-| Operations staff | `staff1@brightloop.test` | `Staff@1234` | Subscriptions, catalog, billing runs, payments, invoices |
-| Customer subscriber | `customer@brightloop.test` | `Customer@1234` | Customer portal, pause, close, invoice printing |
+| Platform admin | `admin@orbitledger.test` | `Admin@1234` | All records, user accounts, audit logs, outbox queue |
+| Operations staff | `staff1@orbitledger.test` | `Staff@1234` | Subscriptions, catalog, billing runs, payments, invoices |
+| Customer subscriber | `customer@orbitledger.test` | `Customer@1234` | Customer portal, pause, close, invoice printing |
 
 ---
 
@@ -184,7 +184,7 @@ Coverage across `app/services`: **91%**
 - `services/auth.py`: **81%**
 - `services/idempotency.py`: **81%**
 
-All 76 backend tests pass against an isolated temporary database (`conftest.py` ensures `brightloop.db` is never touched):
+All 76 backend tests pass against an isolated temporary database (`conftest.py` ensures `orbitledger.db` is never touched):
 
 ```text
 tests/authz/test_authz_matrix.py (4 tests) - Staff forbidden from admin actions, staff business ops, customer scoping, unauthenticated rejection
@@ -229,7 +229,7 @@ To enable time-travel clock advancement for demonstration:
 DEMO_MODE=true docker compose up
 ```
 
-When running in demo mode, platform administrators (`admin@brightloop.test`) see a **Time Travel +1 Mo** button in the top navigation bar. Clicking it calls `/api/demo/advance-clock`, advancing the simulated UTC clock by one calendar month and triggering the idempotent billing engine to generate new invoice cycles without waiting 30 days.
+When running in demo mode, platform administrators (`admin@orbitledger.test`) see a **Time Travel +1 Mo** button in the top navigation bar. Clicking it calls `/api/demo/advance-clock`, advancing the simulated UTC clock by one calendar month and triggering the idempotent billing engine to generate new invoice cycles without waiting 30 days.
 
 ### Dataset sizes
 
@@ -238,7 +238,7 @@ When running in demo mode, platform administrators (`admin@brightloop.test`) see
 
 ### Known limitations
 
-1. **Local database dialect**: Local single-process runs use SQLite (`sqlite:///./brightloop.db`), relying on serialized transactions. Multi-worker row-level locking (`SKIP LOCKED`) is active on PostgreSQL 16 in Docker Compose and production environments.
+1. **Local database dialect**: Local single-process runs use SQLite (`sqlite:///./orbitledger.db`), relying on serialized transactions. Multi-worker row-level locking (`SKIP LOCKED`) is active on PostgreSQL 16 in Docker Compose and production environments.
 2. **Payment processor simulation**: Payment recording models offline and direct bank transactions (UPI, card, bank transfer, cheque, cash) rather than calling third-party payment gateways (Stripe/Razorpay) via external webhooks.
 3. **Outbox email delivery**: Transactional outbox messages are delivered to local Mailpit SMTP (`http://localhost:8025`) for self-contained validation rather than external authenticated SMTP relays.
 4. **Client-side routing**: The frontend is a React 18 single-page application using code splitting (`React.lazy`, main bundle: ~248 kB) rather than server-side rendering (SSR).

@@ -22,10 +22,10 @@ def api_client():
 @pytest.fixture
 def auth_headers(api_client):
     with SessionLocal() as db:
-        admin = db.query(User).filter(User.email == "admin_overdue_test@brightloop.test").first()
+        admin = db.query(User).filter(User.email == "admin_overdue_test@orbitledger.test").first()
         if not admin:
             admin = User(
-                email="admin_overdue_test@brightloop.test",
+                email="admin_overdue_test@orbitledger.test",
                 password_hash=hash_password("Admin@1234"),
                 role="admin",
                 full_name="Admin Overdue Test",
@@ -36,7 +36,7 @@ def auth_headers(api_client):
 
     res = api_client.post(
         "/api/auth/login",
-        json={"email": "admin_overdue_test@brightloop.test", "password": "Admin@1234"},
+        json={"email": "admin_overdue_test@orbitledger.test", "password": "Admin@1234"},
     )
     assert res.status_code == 200, res.text
     token = res.json()["access_token"]

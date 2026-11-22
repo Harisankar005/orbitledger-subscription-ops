@@ -100,13 +100,13 @@ If the update affects zero rows, the limit was exhausted and the service rejects
 
 The repository supports running and testing without requiring Docker or a local PostgreSQL installation.
 
-All queries use portable SQLAlchemy 2.0 ORM expressions. PostgreSQL-specific features (`SKIP LOCKED` and advisory locks) sit behind dialect checks. OrbitLedger runs on both `sqlite:///brightloop.db` and PostgreSQL with identical business logic.
+All queries use portable SQLAlchemy 2.0 ORM expressions. PostgreSQL-specific features (`SKIP LOCKED` and advisory locks) sit behind dialect checks. OrbitLedger runs on both `sqlite:///orbitledger.db` and PostgreSQL with identical business logic.
 
 ---
 
-### How are test databases isolated so running pytest never mutates `brightloop.db`?
+### How are test databases isolated so running pytest never mutates `orbitledger.db`?
 
-In `backend/conftest.py`, pytest initializes an isolated temporary SQLite database using `tempfile.NamedTemporaryFile` when `DATABASE_URL` is unset or points to the development database. It clears the settings cache, binds `app.db.engine` and `app.db.SessionLocal` to the isolated test database, and seeds it once for the test session. On session teardown, the temporary engine is disposed and the temp file is deleted. The physical `brightloop.db` file remains completely untouched.
+In `backend/conftest.py`, pytest initializes an isolated temporary SQLite database using `tempfile.NamedTemporaryFile` when `DATABASE_URL` is unset or points to the development database. It clears the settings cache, binds `app.db.engine` and `app.db.SessionLocal` to the isolated test database, and seeds it once for the test session. On session teardown, the temporary engine is disposed and the temp file is deleted. The physical `orbitledger.db` file remains completely untouched.
 
 ---
 

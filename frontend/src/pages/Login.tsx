@@ -70,7 +70,7 @@ export function Login() {
                 label="Work Email"
                 type="email"
                 required
-                placeholder="admin@brightloop.test"
+                placeholder="admin@orbitledger.test"
                 error={errors.email?.message}
                 {...register("email")}
               />
@@ -112,21 +112,21 @@ export function Login() {
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
-                  onClick={() => fillCredentials("admin@brightloop.test", "Admin@1234")}
+                  onClick={() => fillCredentials("admin@orbitledger.test", "Admin@1234")}
                   className="px-2 py-1 rounded bg-white border border-slate-300 hover:bg-slate-100 font-medium text-slate-700 cursor-pointer focus-visible:ring-2 focus-visible:ring-indigo-600"
                 >
                   Admin
                 </button>
                 <button
                   type="button"
-                  onClick={() => fillCredentials("staff1@brightloop.test", "Staff@1234")}
+                  onClick={() => fillCredentials("staff1@orbitledger.test", "Staff@1234")}
                   className="px-2 py-1 rounded bg-white border border-slate-300 hover:bg-slate-100 font-medium text-slate-700 cursor-pointer focus-visible:ring-2 focus-visible:ring-indigo-600"
                 >
                   Staff
                 </button>
                 <button
                   type="button"
-                  onClick={() => fillCredentials("customer@brightloop.test", "Customer@1234")}
+                  onClick={() => fillCredentials("customer@orbitledger.test", "Customer@1234")}
                   className="px-2 py-1 rounded bg-white border border-slate-300 hover:bg-slate-100 font-medium text-slate-700 cursor-pointer focus-visible:ring-2 focus-visible:ring-indigo-600"
                 >
                   Customer

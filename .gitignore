@@ -47,8 +47,8 @@ frontend/playwright/.cache/
 *.db-wal
 *.sqlite3
 *.log
-backend/brightloop.db
-backend/test_brightloop.db
+backend/orbitledger.db
+backend/test_orbitledger.db
 
 # Frontend / Node
 node_modules/

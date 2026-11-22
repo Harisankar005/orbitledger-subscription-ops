@@ -26,7 +26,7 @@ from app.services.auth import (
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-REFRESH_COOKIE_NAME = "brightloop_refresh"
+REFRESH_COOKIE_NAME = "orbitledger_refresh"
 
 
 def set_refresh_cookie(response: Response, raw_token: str):
@@ -90,14 +90,14 @@ def refresh(
     request: Request,
     response: Response,
     db: Session = Depends(get_db),
-    brightloop_refresh: Optional[str] = Cookie(None),
+    orbitledger_refresh: Optional[str] = Cookie(None),
 ):
     req_id = getattr(request.state, "request_id", None)
-    if not brightloop_refresh:
+    if not orbitledger_refresh:
         # Check authorization or custom header fallback
-        brightloop_refresh = request.headers.get("X-Refresh-Token")
+        orbitledger_refresh = request.headers.get("X-Refresh-Token")
 
-    access_token, new_raw, user = rotate_refresh_token(db, brightloop_refresh or "", req_id)
+    access_token, new_raw, user = rotate_refresh_token(db, orbitledger_refresh or "", req_id)
     set_refresh_cookie(response, new_raw)
     return TokenResponse(
         access_token=access_token,
@@ -109,9 +109,9 @@ def refresh(
 def logout(
     response: Response,
     db: Session = Depends(get_db),
-    brightloop_refresh: Optional[str] = Cookie(None),
+    orbitledger_refresh: Optional[str] = Cookie(None),
 ):
-    logout_user(db, brightloop_refresh)
+    logout_user(db, orbitledger_refresh)
     clear_refresh_cookie(response)
     return {"message": "Logged out successfully"}
 

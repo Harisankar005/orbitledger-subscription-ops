@@ -4,13 +4,13 @@ from typing import Literal, Optional
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-DEV_SECRET_KEY = "brightloop-dev-secret-key-only-for-local-development-32chars"
+DEV_SECRET_KEY = "orbitledger-dev-secret-key-only-for-local-development-32chars"
 
 
 class Settings(BaseSettings):
     ENVIRONMENT: Literal["development", "production", "test"] = "development"
     SECRET_KEY: Optional[str] = None
-    DATABASE_URL: str = "sqlite:///./brightloop.db"
+    DATABASE_URL: str = "sqlite:///./orbitledger.db"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     TIMEZONE: str = "Asia/Kolkata"
@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     # SMTP / Outbox settings
     SMTP_HOST: str = "localhost"
     SMTP_PORT: int = 1025
-    SMTP_FROM: str = "billing@brightloop.test"
+    SMTP_FROM: str = "billing@orbitledger.test"
     SMTP_TLS: bool = False
 
     # Security settings
@@ -73,7 +73,7 @@ class Settings(BaseSettings):
         insecure_markers = [
             "docker-compose",
             "insecure",
-            "brightloop-super-secret",
+            "orbitledger-super-secret",
             "dev-secret",
             "change-in-production",
             "placeholder",

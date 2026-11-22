@@ -14,9 +14,9 @@ Start the backend and frontend processes before the demo:
 3. Local inbox: `http://localhost:8025` (Mailpit)
 
 Demo credentials:
-- Admin: `admin@brightloop.test` / `Admin@1234` (B. Harisankar)
-- Staff: `staff1@brightloop.test` / `Staff@1234` (Rohan S)
-- Customer: `customer@brightloop.test` / `Customer@1234`
+- Admin: `admin@orbitledger.test` / `Admin@1234` (B. Harisankar)
+- Staff: `staff1@orbitledger.test` / `Staff@1234` (Rohan S)
+- Customer: `customer@orbitledger.test` / `Customer@1234`
 
 The login page includes buttons to fill these credentials with one click.
 
@@ -36,7 +36,7 @@ Action:
 ## Minute 1 to 2: subscription lifecycle and variants
 
 Action:
-1. Click the staff demo login button and sign in as `staff1@brightloop.test`.
+1. Click the staff demo login button and sign in as `staff1@orbitledger.test`.
 2. Open Catalog and Plans:
    - Point to the product variant `Brand = Odoo (+₹560.00)` on the ERP Connector.
    - Note the tax resolution order: explicit line override, product default, priority tax rules, then zero tax.
@@ -76,7 +76,7 @@ Action:
 2. Click Record Payment:
    - Enter a partial payment of ₹1,000 using UPI.
    - The invoice status updates to Partially Paid and shows the remaining balance.
-3. Sign out and sign in as Customer (`customer@brightloop.test`):
+3. Sign out and sign in as Customer (`customer@orbitledger.test`):
    - Open the Customer Portal (`/portal`).
    - View active subscriptions, billing history, and allowed actions (pause, resume, close).
    - Open My Invoices and click Print to open the print layout.
@@ -87,7 +87,7 @@ Action:
 ## Minute 4 to 5: clock advance, audit log, and reporting
 
 Action:
-1. Sign in as Admin (`admin@brightloop.test`).
+1. Sign in as Admin (`admin@orbitledger.test`).
 2. Click Advance Time (+1 Month) in the top bar:
    - Explain: "The clock service advances the application date thirty days. The worker evaluates renewals, dunning rules, and subsequent period invoices."
 3. Open Dashboard (`/`):

@@ -17,7 +17,7 @@ client = TestClient(app)
 
 
 def get_admin_token() -> str:
-    resp = client.post("/api/auth/login", json={"email": "admin@brightloop.test", "password": "Admin@1234"})
+    resp = client.post("/api/auth/login", json={"email": "admin@orbitledger.test", "password": "Admin@1234"})
     assert resp.status_code == 200
     return resp.json()["access_token"]
 
@@ -29,7 +29,7 @@ def test_concurrent_payments_prevent_overpayment():
 
     # Create a customer, plan, subscription, and invoice with total 500.00 and amount_paid 0.00
     with SessionLocal() as db:
-        cust = Customer(name=f"Payee {uuid.uuid4()}", email=f"payee-{uuid.uuid4()}@brightloop.test")
+        cust = Customer(name=f"Payee {uuid.uuid4()}", email=f"payee-{uuid.uuid4()}@orbitledger.test")
         plan = Plan(
             name=f"Pay Plan {uuid.uuid4()}",
             price=Decimal("500.00"),

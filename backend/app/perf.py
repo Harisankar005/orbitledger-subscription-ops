@@ -50,7 +50,7 @@ def run_benchmarks():
     print("=" * 60)
 
     # 1. Login to obtain Admin JWT
-    login_resp = client.post("/api/auth/login", json={"email": "admin@brightloop.test", "password": "Admin@1234"})
+    login_resp = client.post("/api/auth/login", json={"email": "admin@orbitledger.test", "password": "Admin@1234"})
     assert login_resp.status_code == 200, f"Login failed: {login_resp.text}"
     token = login_resp.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}

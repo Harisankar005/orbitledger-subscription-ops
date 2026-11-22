@@ -5,15 +5,15 @@ services:
     image: postgres:16-alpine
     container_name: orbitledger-db
     environment:
-      POSTGRES_USER: brightloop
-      POSTGRES_PASSWORD: brightloop
-      POSTGRES_DB: brightloop
+      POSTGRES_USER: orbitledger
+      POSTGRES_PASSWORD: orbitledger
+      POSTGRES_DB: orbitledger
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U brightloop -d brightloop"]
+      test: ["CMD-SHELL", "pg_isready -U orbitledger -d orbitledger"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -32,7 +32,7 @@ services:
     container_name: orbitledger-api
     command: sh -c "python -m alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://brightloop:brightloop@db:5432/brightloop}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://orbitledger:orbitledger@db:5432/orbitledger}
       SECRET_KEY: ${SECRET_KEY:-}
       ENVIRONMENT: ${ENVIRONMENT:-development}
       DEMO_MODE: ${DEMO_MODE:-false}
@@ -41,7 +41,7 @@ services:
       COOKIE_SAMESITE: ${COOKIE_SAMESITE:-strict}
       SMTP_HOST: mailpit
       SMTP_PORT: 1025
-      SMTP_FROM: billing@brightloop.test
+      SMTP_FROM: billing@orbitledger.test
       EMBEDDED_WORKER: "false"
     ports:
       - "8000:8000"
@@ -64,7 +64,7 @@ services:
     container_name: orbitledger-worker
     command: python -m app.worker
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://brightloop:brightloop@db:5432/brightloop}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://orbitledger:orbitledger@db:5432/orbitledger}
       SECRET_KEY: ${SECRET_KEY:-}
       ENVIRONMENT: ${ENVIRONMENT:-development}
       DEMO_MODE: ${DEMO_MODE:-false}
@@ -73,7 +73,7 @@ services:
       COOKIE_SAMESITE: ${COOKIE_SAMESITE:-strict}
       SMTP_HOST: mailpit
       SMTP_PORT: 1025
-      SMTP_FROM: billing@brightloop.test
+      SMTP_FROM: billing@orbitledger.test
     depends_on:
       db:
         condition: service_healthy
