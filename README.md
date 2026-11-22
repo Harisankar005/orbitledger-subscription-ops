@@ -30,7 +30,7 @@ cp .env.example backend/.env                 # Windows: copy .env.example backen
 cd backend
 python -m venv .venv
 source .venv/bin/activate                    # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+pip install -r requirements.txt -r requirements-dev.txt
 
 # 3. Run database migrations and seed data
 alembic upgrade head
@@ -45,7 +45,10 @@ npm install
 npm run dev
 ```
 
-Open the web app at `http://localhost:5173`.
+Open the application and documentation in your browser:
+- **Web client:** `http://localhost:5173`
+- **Interactive API Documentation (Swagger):** `http://localhost:8000/api/docs`
+- **Alternative API Documentation (ReDoc):** `http://localhost:8000/api/redoc`
 
 > **Note on Email Outbox:** The local email inbox at `http://localhost:8025` is provided by Mailpit when running with Docker Compose. In this manual setup, all generated emails are safely queued in the transactional outbox and visible inside the application on the admin Outbox page at `http://localhost:5173/admin/outbox`.
 
@@ -162,6 +165,10 @@ pytest -v --cov=app/services tests/
 cd ../frontend
 npm run test
 npm run lint
+
+# Playwright Golden Path E2E tests
+npx playwright install chromium
+npm run test:e2e
 ```
 
 Coverage across `app/services`: **91%**
